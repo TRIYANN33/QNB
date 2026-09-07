@@ -222,7 +222,9 @@ public sealed class MainForm : Form
         button.Click += (_, _) =>
         {
             if (text.StartsWith("Importation", StringComparison.OrdinalIgnoreCase)) ImportDocument();
+            else if (string.Equals(text, "Sources opérations", StringComparison.OrdinalIgnoreCase)) ShowOperationSources();
             else if (string.Equals(text, "Opérations", StringComparison.OrdinalIgnoreCase)) ShowOperations();
+            else if (string.Equals(text, "Analyser les doublons", StringComparison.OrdinalIgnoreCase)) ShowDuplicateAnalysis();
             else MessageBox.Show($"Module « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         return button;
@@ -246,6 +248,7 @@ public sealed class MainForm : Form
         {
             if (text.StartsWith("Importer", StringComparison.OrdinalIgnoreCase)) ImportDocument();
             else if (string.Equals(text, "Opérations", StringComparison.OrdinalIgnoreCase)) ShowOperations();
+            else if (string.Equals(text, "Analyser les doublons", StringComparison.OrdinalIgnoreCase)) ShowDuplicateAnalysis();
             else MessageBox.Show($"Action « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         return button;
@@ -299,6 +302,19 @@ public sealed class MainForm : Form
         {
             MessageBox.Show("Impossible d'importer ce fichier.\n\n" + ex.Message, "QNB - Erreur d'importation", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
+    }
+
+    private void ShowOperationSources()
+    {
+        using var form = new OperationSourcesForm();
+        form.ShowDialog(this);
+        RefreshDashboardStats();
+    }
+
+    private void ShowDuplicateAnalysis()
+    {
+        using var form = new DuplicateAnalysisForm();
+        form.ShowDialog(this);
     }
 
     private void ShowOperations()
