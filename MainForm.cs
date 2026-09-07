@@ -38,12 +38,8 @@ public sealed class MainForm : Form
         var usageInfo = AppUsageInfo.LoadAndRegisterCurrentUse();
         var root = new TableLayoutPanel
         {
-            Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
-            Padding = new Padding(10),
-            BackColor = Navy950,
-            Margin = Padding.Empty
+            Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Padding = new Padding(10),
+            BackColor = Navy950, Margin = Padding.Empty
         };
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250F));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
@@ -63,15 +59,10 @@ public sealed class MainForm : Form
     {
         var sidebar = new RoundedPanel
         {
-            Dock = DockStyle.Fill,
-            Radius = 28,
-            BackColor = Navy900,
-            BorderColor = Color.FromArgb(31, 115, 182),
-            BorderWidth = 1,
-            Margin = new Padding(0, 0, 10, 0),
-            Padding = new Padding(14, 14, 14, 12)
+            Dock = DockStyle.Fill, Radius = 28, BackColor = Navy900,
+            BorderColor = Color.FromArgb(31, 115, 182), BorderWidth = 1,
+            Margin = new Padding(0, 0, 10, 0), Padding = new Padding(14, 14, 14, 12)
         };
-
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = Color.Transparent };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -80,33 +71,17 @@ public sealed class MainForm : Form
         var brand = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
         brand.Controls.Add(new PictureBox
         {
-            Image = BrandAssets.CreateHummingbirdLogo(Color.White),
-            SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = Color.Transparent,
-            Location = new Point(5, 1),
-            Size = new Size(56, 84)
+            Image = BrandAssets.CreateHummingbirdLogo(Color.White), SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent, Location = new Point(5, 1), Size = new Size(56, 84)
         });
-        brand.Controls.Add(new Label
-        {
-            Text = "QNB", AutoSize = true, ForeColor = Color.White,
-            Font = new Font("Segoe UI Semibold", 25F, FontStyle.Bold), Location = new Point(69, 20)
-        });
-        brand.Controls.Add(new Label
-        {
-            Text = "PLUS LOIN ENSEMBLE", AutoSize = true, ForeColor = TextSoft,
-            Font = new Font("Segoe UI Semibold", 7F, FontStyle.Bold), Location = new Point(71, 58)
-        });
+        brand.Controls.Add(new Label { Text = "QNB", AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 25F, FontStyle.Bold), Location = new Point(69, 20) });
+        brand.Controls.Add(new Label { Text = "PLUS LOIN ENSEMBLE", AutoSize = true, ForeColor = TextSoft, Font = new Font("Segoe UI Semibold", 7F, FontStyle.Bold), Location = new Point(71, 58) });
 
         var menu = new FlowLayoutPanel
         {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            AutoScroll = true,
-            BackColor = Color.Transparent,
-            Padding = new Padding(0, 2, 0, 2)
+            Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false,
+            AutoScroll = true, BackColor = Color.Transparent, Padding = new Padding(0, 2, 0, 2)
         };
-
         var items = new (string Icon, string Text)[]
         {
             ("⌂", "Tableau de bord"), ("▣", "Patrimoine"), ("⇩", "Importation PDF / Excel / CSV"),
@@ -115,19 +90,14 @@ public sealed class MainForm : Form
             ("⚙", "Règles auto"), ("◉", "Analyser les doublons"), ("↻", "Actualiser le classeur"),
             ("↻", "Actualiser feuille"), ("?", "Mode emploi")
         };
-        for (var i = 0; i < items.Length; i++)
-            menu.Controls.Add(CreateSidebarButton(items[i].Icon, items[i].Text, i == 0));
+        for (var i = 0; i < items.Length; i++) menu.Controls.Add(CreateSidebarButton(items[i].Icon, items[i].Text, i == 0));
 
         var footer = new Label
         {
-            Text = "PERFORMANCE\nCONFIANCE\nAVENIR",
-            Dock = DockStyle.Fill,
-            ForeColor = Color.FromArgb(111, 176, 230),
-            Font = new Font("Segoe UI", 7.5F),
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(9, 0, 0, 0)
+            Text = "PERFORMANCE\nCONFIANCE\nAVENIR", Dock = DockStyle.Fill,
+            ForeColor = Color.FromArgb(111, 176, 230), Font = new Font("Segoe UI", 7.5F),
+            TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(9, 0, 0, 0)
         };
-
         layout.Controls.Add(brand, 0, 0);
         layout.Controls.Add(menu, 0, 1);
         layout.Controls.Add(footer, 0, 2);
@@ -138,15 +108,7 @@ public sealed class MainForm : Form
     private Control BuildDashboard(AppUsageInfo usageInfo)
     {
         var host = new StadiumPanel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Navy950, Padding = new Padding(10, 0, 0, 0) };
-        var content = new TableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            ColumnCount = 1,
-            RowCount = 6,
-            BackColor = Color.Transparent,
-            Padding = new Padding(12, 4, 12, 12)
-        };
+        var content = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 6, BackColor = Color.Transparent, Padding = new Padding(12, 4, 12, 12) };
         content.Controls.Add(BuildHero(), 0, 0);
         content.Controls.Add(BuildKpis(), 0, 1);
         content.Controls.Add(BuildInformationPanel(usageInfo), 0, 2);
@@ -159,65 +121,25 @@ public sealed class MainForm : Form
 
     private Control BuildHero()
     {
-        var hero = new RoundedPanel
-        {
-            Height = 190,
-            Dock = DockStyle.Top,
-            Radius = 26,
-            BackColor = Navy900,
-            BorderColor = Color.FromArgb(24, 103, 170),
-            BorderWidth = 1,
-            Margin = new Padding(0, 0, 0, 12)
-        };
+        var hero = new RoundedPanel { Height = 190, Dock = DockStyle.Top, Radius = 26, BackColor = Navy900, BorderColor = Color.FromArgb(24, 103, 170), BorderWidth = 1, Margin = new Padding(0, 0, 0, 12) };
         hero.Paint += PaintHero;
-        hero.Controls.Add(new PictureBox
-        {
-            Image = BrandAssets.CreateHummingbirdLogo(Color.White), SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = Color.Transparent, Size = new Size(88, 132), Location = new Point(52, 28)
-        });
-        hero.Controls.Add(new Label
-        {
-            Text = "QNB", AutoSize = true, ForeColor = Color.White, BackColor = Color.Transparent,
-            Font = new Font("Segoe UI Semibold", 46F, FontStyle.Bold), Location = new Point(151, 38)
-        });
-        hero.Controls.Add(new Label
-        {
-            Text = "PLUS LOIN ENSEMBLE", AutoSize = true, ForeColor = Color.FromArgb(224, 238, 250),
-            BackColor = Color.Transparent, Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold), Location = new Point(158, 112)
-        });
-        hero.Controls.Add(new Label
-        {
-            Name = "heroSlogan", Text = "VOS DONNÉES\nNOTRE EXPERTISE\nVOTRE AVENIR", AutoSize = true,
-            Anchor = AnchorStyles.Top | AnchorStyles.Right, ForeColor = Color.White, BackColor = Color.Transparent,
-            Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold), Location = new Point(760, 74)
-        });
-        _dateTimeLabel = new Label
-        {
-            Size = new Size(260, 48), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight,
-            ForeColor = Color.FromArgb(209, 234, 252), BackColor = Color.Transparent,
-            Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold), Location = new Point(905, 16)
-        };
+        hero.Controls.Add(new PictureBox { Image = BrandAssets.CreateHummingbirdLogo(Color.White), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent, Size = new Size(88, 132), Location = new Point(52, 28) });
+        hero.Controls.Add(new Label { Text = "QNB", AutoSize = true, ForeColor = Color.White, BackColor = Color.Transparent, Font = new Font("Segoe UI Semibold", 46F, FontStyle.Bold), Location = new Point(151, 38) });
+        hero.Controls.Add(new Label { Text = "PLUS LOIN ENSEMBLE", AutoSize = true, ForeColor = Color.FromArgb(224, 238, 250), BackColor = Color.Transparent, Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold), Location = new Point(158, 112) });
+        hero.Controls.Add(new Label { Name = "heroSlogan", Text = "VOS DONNÉES\nNOTRE EXPERTISE\nVOTRE AVENIR", AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right, ForeColor = Color.White, BackColor = Color.Transparent, Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold), Location = new Point(760, 74) });
+        _dateTimeLabel = new Label { Size = new Size(260, 48), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, ForeColor = Color.FromArgb(209, 234, 252), BackColor = Color.Transparent, Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold), Location = new Point(905, 16) };
         hero.Controls.Add(_dateTimeLabel);
         hero.Resize += (_, _) =>
         {
             _dateTimeLabel.Location = new Point(Math.Max(760, hero.ClientSize.Width - 282), 17);
-            if (hero.Controls["heroSlogan"] is Control slogan)
-                slogan.Location = new Point(Math.Max(610, hero.ClientSize.Width - 310), 74);
+            if (hero.Controls["heroSlogan"] is Control slogan) slogan.Location = new Point(Math.Max(610, hero.ClientSize.Width - 310), 74);
         };
         return hero;
     }
 
     private Control BuildKpis()
     {
-        var grid = new TableLayoutPanel
-        {
-            Dock = DockStyle.Top,
-            AutoSize = true,
-            ColumnCount = 5,
-            RowCount = 1,
-            BackColor = Color.Transparent,
-            Margin = new Padding(0, 0, 0, 12)
-        };
+        var grid = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 5, RowCount = 1, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 12) };
         for (var i = 0; i < 5; i++) grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
         grid.Controls.Add(CreateKpiCard("Documents", "0", "Fichiers importés", "▤", Blue, out _documentsValue), 0, 0);
         grid.Controls.Add(CreateKpiCard("Opérations", "0", "Lignes analysées", "≡", Teal, out _operationsValue), 1, 0);
@@ -229,22 +151,10 @@ public sealed class MainForm : Form
 
     private Control BuildInformationPanel(AppUsageInfo usageInfo)
     {
-        var card = new RoundedPanel
-        {
-            Height = 168, Dock = DockStyle.Top, Radius = 22, BackColor = Color.FromArgb(7, 42, 78),
-            BorderColor = Line, BorderWidth = 1, Margin = new Padding(0, 0, 0, 12), Padding = new Padding(22, 16, 22, 16)
-        };
-        card.Controls.Add(new Label
-        {
-            Text = "Informations de l'application", AutoSize = true, ForeColor = Color.White,
-            Font = new Font("Segoe UI Semibold", 14F, FontStyle.Bold), Location = new Point(22, 15)
-        });
+        var card = new RoundedPanel { Height = 168, Dock = DockStyle.Top, Radius = 22, BackColor = Color.FromArgb(7, 42, 78), BorderColor = Line, BorderWidth = 1, Margin = new Padding(0, 0, 0, 12), Padding = new Padding(22, 16, 22, 16) };
+        card.Controls.Add(new Label { Text = "Informations de l'application", AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 14F, FontStyle.Bold), Location = new Point(22, 15) });
         var brand = new Panel { BackColor = Color.Transparent, Location = new Point(22, 48), Size = new Size(300, 100) };
-        brand.Controls.Add(new PictureBox
-        {
-            Image = BrandAssets.CreateHummingbirdLogo(Color.White), SizeMode = PictureBoxSizeMode.Zoom,
-            BackColor = Color.Transparent, Location = new Point(2, 0), Size = new Size(58, 90)
-        });
+        brand.Controls.Add(new PictureBox { Image = BrandAssets.CreateHummingbirdLogo(Color.White), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Transparent, Location = new Point(2, 0), Size = new Size(58, 90) });
         brand.Controls.Add(new Label { Text = "QNB", AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 30F, FontStyle.Bold), Location = new Point(67, 16) });
         brand.Controls.Add(new Label { Text = "PLUS LOIN ENSEMBLE", AutoSize = true, ForeColor = TextSoft, Font = new Font("Segoe UI Semibold", 7.5F, FontStyle.Bold), Location = new Point(70, 63) });
         card.Controls.Add(brand);
@@ -255,15 +165,10 @@ public sealed class MainForm : Form
         AddDetailRow(details, 0, "Date de création", FormatDateTime(usageInfo.CreationDate));
         AddDetailRow(details, 1, "Dernière utilisation", usageInfo.PreviousUseDate.HasValue ? FormatDateTime(usageInfo.PreviousUseDate.Value) : "Première utilisation");
         AddDetailRow(details, 2, "Dernière modification", FormatDateTime(GetApplicationLastModificationDate()));
-        AddDetailRow(details, 3, "Version", "1.1.0  •  .NET 6");
+        AddDetailRow(details, 3, "Version", "1.2.0  •  .NET 6");
         card.Controls.Add(details);
 
-        var calendar = new RoundedPanel
-        {
-            Size = new Size(185, 108), Radius = 18, BackColor = Color.FromArgb(9, 57, 104),
-            BorderColor = Color.FromArgb(30, 131, 211), BorderWidth = 1, Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            Location = new Point(980, 42)
-        };
+        var calendar = new RoundedPanel { Size = new Size(185, 108), Radius = 18, BackColor = Color.FromArgb(9, 57, 104), BorderColor = Color.FromArgb(30, 131, 211), BorderWidth = 1, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(980, 42) };
         calendar.Controls.Add(new Label { Text = DateTime.Now.ToString("dddd", CultureInfo.GetCultureInfo("fr-FR")), Dock = DockStyle.Top, Height = 27, TextAlign = ContentAlignment.BottomCenter, ForeColor = Blue, Font = new Font("Segoe UI", 9F) });
         calendar.Controls.Add(new Label { Text = DateTime.Now.Day.ToString("00"), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Blue, Font = new Font("Segoe UI Semibold", 24F, FontStyle.Bold) });
         calendar.Controls.Add(new Label { Text = DateTime.Now.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("fr-FR")).ToUpperInvariant(), Dock = DockStyle.Bottom, Height = 28, TextAlign = ContentAlignment.TopCenter, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 8F, FontStyle.Bold) });
@@ -296,8 +201,7 @@ public sealed class MainForm : Form
             ("✓", "Lancer les contrôles", Navy700), ("◆", "Classification", Violet),
             ("◉", "Analyser les doublons", Rose), ("↻", "Actualiser le classeur", Navy700)
         };
-        for (var i = 0; i < actions.Length; i++)
-            grid.Controls.Add(CreateActionButton(actions[i].Icon, actions[i].Text, actions[i].Color), i % 4, i / 4);
+        for (var i = 0; i < actions.Length; i++) grid.Controls.Add(CreateActionButton(actions[i].Icon, actions[i].Text, actions[i].Color), i % 4, i / 4);
         return grid;
     }
 
@@ -352,41 +256,44 @@ public sealed class MainForm : Form
         using var dialog = new OpenFileDialog
         {
             Title = "Importer un relevé bancaire",
-            Filter = "Relevés CSV (*.csv)|*.csv|Fichiers Excel (*.xlsx;*.xls)|*.xlsx;*.xls|Documents PDF (*.pdf)|*.pdf|Tous les fichiers (*.*)|*.*",
-            FilterIndex = 1,
-            Multiselect = false,
-            CheckFileExists = true
+            Filter = "Relevés bancaires (*.csv;*.xlsx;*.xls)|*.csv;*.xlsx;*.xls|CSV (*.csv)|*.csv|Excel (*.xlsx;*.xls)|*.xlsx;*.xls|Documents PDF (*.pdf)|*.pdf|Tous les fichiers (*.*)|*.*",
+            FilterIndex = 1, Multiselect = false, CheckFileExists = true
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
-        if (extension != ".csv")
+        if (extension == ".pdf")
         {
-            MessageBox.Show("Cette version prend en charge les relevés CSV. Le support PDF et Excel sera ajouté ensuite.", "QNB - Importation", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Le support PDF sera ajouté dans une prochaine étape.", "QNB - Importation", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        if (extension is not ".csv" and not ".xlsx" and not ".xls")
+        {
+            MessageBox.Show("Format non pris en charge. Utilisez un fichier CSV, XLSX ou XLS.", "QNB - Importation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         try
         {
-            var result = BankImportService.ImportCsv(dialog.FileName);
+            var result = extension == ".csv"
+                ? BankImportService.ImportCsv(dialog.FileName)
+                : BankImportService.ImportExcel(dialog.FileName);
 
             using var accountForm = new BankAccountSelectionForm(result);
-            if (accountForm.ShowDialog(this) != DialogResult.OK || accountForm.SelectedAccount is null)
-                return;
+            if (accountForm.ShowDialog(this) != DialogResult.OK || accountForm.SelectedAccount is null) return;
             BankImportService.BindAccount(result, accountForm.SelectedAccount);
 
             using var preview = new ImportPreviewForm(result);
             if (preview.ShowDialog(this) != DialogResult.OK) return;
 
-            BankImportService.SaveImport(result);
+            var savedPath = BankImportService.SaveImport(result);
             RefreshDashboardStats();
+            if (string.IsNullOrWhiteSpace(savedPath)) return;
 
             var deferredCount = result.Operations.Count(x => x.IsDeferredCardSummary);
             MessageBox.Show(
-                $"Importation terminée avec succès.\n\nBanque : {result.BankName}\nCompte : {result.AccountDisplayName}\nOpérations : {result.Operations.Count}\nDébits carte différée détectés : {deferredCount}",
-                "QNB - Importation réussie",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+                $"Importation terminée avec succès.\n\nBanque : {result.BankName}\nCompte : {result.AccountDisplayName}\nOpérations analysées : {result.Operations.Count}\nDébits carte différée détectés : {deferredCount}",
+                "QNB - Importation réussie", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
