@@ -100,6 +100,9 @@ CREATE INDEX IF NOT EXISTS IX_Imports_AccountId ON Imports(AccountId);";
     {
         var connection = new SqliteConnection(ConnectionString);
         connection.Open();
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = "PRAGMA foreign_keys = ON;";
+        pragma.ExecuteNonQuery();
         return connection;
     }
 
@@ -191,12 +194,12 @@ SELECT last_insert_rowid();";
         insertImport.Parameters.AddWithValue("$reference", result.AccountReference);
         insertImport.Parameters.AddWithValue("$holder", result.AccountHolder);
         insertImport.Parameters.AddWithValue("$type", (int)result.AccountType);
-        insertImport.Parameters.AddWithValue("$balanceDate", result.BalanceDate?.ToString("O", CultureInfo.InvariantCulture) ?? (object)DBNull.Value);
-        insertImport.Parameters.AddWithValue("$balance", result.Balance.HasValue ? result.Balance.Value : (object)DBNull.Value);
+        insertImport.Parameters.AddWithValue("$balanceDate", result.BalanceDate.HasValue ? result.BalanceDate.Value.ToString("O", CultureInfo.InvariantCulture) : DBNull.Value);
+        insertImport.Parameters.AddWithValue("$balance", result.Balance.HasValue ? result.Balance.Value : DBNull.Value);
         insertImport.Parameters.AddWithValue("$currency", result.Currency);
         insertImport.Parameters.AddWithValue("$importedAt", DateTime.Now.ToString("O", CultureInfo.InvariantCulture));
 
-        var importId = (long)(insertImport.ExecuteScalar() ?? 0L);
+        var importId = Convert.ToInt64(insertImport.ExecuteScalar(), CultureInfo.InvariantCulture);
 
         foreach (var operation in result.Operations)
         {
@@ -211,7 +214,7 @@ VALUES ($importId, $date, $nature, $debit, $credit, $currency, $valueDate, $labe
             insertOperation.Parameters.AddWithValue("$debit", operation.Debit);
             insertOperation.Parameters.AddWithValue("$credit", operation.Credit);
             insertOperation.Parameters.AddWithValue("$currency", operation.Currency);
-            insertOperation.Parameters.AddWithValue("$valueDate", operation.ValueDate?.ToString("O", CultureInfo.InvariantCulture) ?? (object)DBNull.Value);
+            insertOperation.Parameters.AddWithValue("$valueDate", operation.ValueDate.HasValue ? operation.ValueDate.Value.ToString("O", CultureInfo.InvariantCulture) : DBNull.Value);
             insertOperation.Parameters.AddWithValue("$label", operation.InterbankLabel);
             insertOperation.Parameters.AddWithValue("$details", operation.Details);
             insertOperation.Parameters.AddWithValue("$deferred", operation.IsDeferredCardSummary ? 1 : 0);
@@ -224,40 +227,46 @@ VALUES ($importId, $date, $nature, $debit, $credit, $currency, $valueDate, $labe
 
     public static List<BankImportResult> LoadImports()
     {
-        var results = new List<BankImportResult>();
+        var results = new List<(long Id, BankImportResult Result)>();
+
         using var connection = OpenConnection();
-        using var importsCommand = connection.CreateCommand();
-        importsCommand.CommandText = @"
+        using (var importsCommand = connection.CreateCommand())
+        {
+            importsCommand.CommandText = @"
 SELECT Id, SourceFile, AccountId, BankName, AccountDisplayName, AccountReference, AccountHolder, AccountType, BalanceDate, Balance, Currency
 FROM Imports ORDER BY Id;";
 
-        using var reader = importsCommand.ExecuteReader();
-        while (reader.Read())
-        {
-            var importId = reader.GetInt64(0);
-            var result = new BankImportResult
+            using var reader = importsCommand.ExecuteReader();
+            while (reader.Read())
             {
-                SourceFile = reader.GetString(1),
-                AccountId = reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2)),
-                BankName = reader.GetString(3),
-                AccountDisplayName = reader.GetString(4),
-                AccountReference = reader.GetString(5),
-                AccountHolder = reader.GetString(6),
-                AccountType = (BankAccountType)reader.GetInt32(7),
-                BalanceDate = reader.IsDBNull(8) ? null : DateTime.Parse(reader.GetString(8), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
-                Balance = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetDouble(9), CultureInfo.InvariantCulture),
-                Currency = reader.GetString(10)
-            };
+                var result = new BankImportResult
+                {
+                    SourceFile = reader.GetString(1),
+                    AccountId = reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2)),
+                    BankName = reader.GetString(3),
+                    AccountDisplayName = reader.GetString(4),
+                    AccountReference = reader.GetString(5),
+                    AccountHolder = reader.GetString(6),
+                    AccountType = (BankAccountType)reader.GetInt32(7),
+                    BalanceDate = reader.IsDBNull(8) ? null : DateTime.Parse(reader.GetString(8), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
+                    Balance = reader.IsDBNull(9) ? null : Convert.ToDecimal(reader.GetDouble(9), CultureInfo.InvariantCulture),
+                    Currency = reader.GetString(10)
+                };
+                results.Add((reader.GetInt64(0), result));
+            }
+        }
 
+        foreach (var item in results)
+        {
             using var operationsCommand = connection.CreateCommand();
             operationsCommand.CommandText = @"
 SELECT OperationDate, Nature, Debit, Credit, Currency, ValueDate, InterbankLabel, Details, IsDeferredCardSummary
 FROM Operations WHERE ImportId = $importId ORDER BY Id;";
-            operationsCommand.Parameters.AddWithValue("$importId", importId);
+            operationsCommand.Parameters.AddWithValue("$importId", item.Id);
             using var operationsReader = operationsCommand.ExecuteReader();
             while (operationsReader.Read())
             {
-                result.Operations.Add(new BankOperation
+                item.Result.Operations.Add(new BankOperation
                 {
                     Date = DateTime.Parse(operationsReader.GetString(0), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
                     Nature = operationsReader.GetString(1),
@@ -270,11 +279,9 @@ FROM Operations WHERE ImportId = $importId ORDER BY Id;";
                     IsDeferredCardSummary = operationsReader.GetInt32(8) == 1
                 });
             }
-
-            results.Add(result);
         }
 
-        return results;
+        return results.Select(x => x.Result).ToList();
     }
 
     public static DashboardBankingStats GetDashboardStats()
