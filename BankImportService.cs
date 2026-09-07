@@ -197,8 +197,41 @@ internal static class BankImportService
 
     public static string SaveImport(BankImportResult result)
     {
-        var save = SaveImportWithoutDuplicates(result);
-        return save.SavedPath ?? string.Empty;
+        var check = CheckDuplicates(result);
+
+        if (check.DuplicateCount > 0)
+        {
+            MessageBox.Show(
+                $"Vérification des doublons terminée.\n\n" +
+                $"Opérations analysées : {check.TotalOperations}\n" +
+                $"Nouvelles opérations : {check.NewCount}\n" +
+                $"Doublons détectés : {check.DuplicateCount}\n\n" +
+                "Les doublons seront automatiquement exclus du transfert.",
+                "QNB - Contrôle des doublons",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
+
+        result.Operations = check.NewOperations;
+
+        if (result.Operations.Count == 0)
+        {
+            MessageBox.Show(
+                "Aucune nouvelle opération à importer. Toutes les lignes du relevé existent déjà pour ce compte.",
+                "QNB - Aucun transfert nécessaire",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+            return string.Empty;
+        }
+
+        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QNB", "Imports");
+        Directory.CreateDirectory(directory);
+
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+        var path = Path.Combine(directory, $"import-{stamp}.json");
+        var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(path, json, Encoding.UTF8);
+        return path;
     }
 
     private static bool SameAccount(BankImportResult left, BankImportResult right)
