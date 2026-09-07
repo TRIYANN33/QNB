@@ -28,7 +28,7 @@ internal static class BrandAssets
         graphics.DrawBezier(pen, 45, 133, 64, 100, 83, 77, 118, 69);
         graphics.DrawBezier(thinPen, 50, 115, 69, 73, 88, 38, 112, 20);
         graphics.DrawBezier(thinPen, 69, 91, 85, 55, 100, 31, 128, 3);
-        graphics.FillEllipse(89, 46, 18, 15, brush);
+        graphics.FillEllipse(brush, 89, 46, 18, 15);
 
         using var beak = new GraphicsPath();
         beak.AddPolygon(new[] { new Point(103, 49), new Point(143, 35), new Point(106, 57) });
