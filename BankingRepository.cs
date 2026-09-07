@@ -10,6 +10,7 @@ internal sealed class DashboardBankingStats { public int Documents { get; set; }
 
 internal static class BankingRepository
 {
+    private const string ResetVersion = "2026-09-07-clean-1";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QNB");
     private static string DatabasePath => Path.Combine(Root, "qnb.db");
     private static string ConnectionString => $"Data Source={DatabasePath}";
@@ -21,8 +22,35 @@ internal static class BankingRepository
         command.CommandText = @"CREATE TABLE IF NOT EXISTS Accounts (Id TEXT PRIMARY KEY,BankName TEXT NOT NULL,AccountName TEXT NOT NULL,AccountReference TEXT NOT NULL,Holder TEXT NOT NULL,Type INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS Imports (Id INTEGER PRIMARY KEY AUTOINCREMENT,SourceFile TEXT NOT NULL,AccountId TEXT NULL,BankName TEXT NOT NULL,AccountDisplayName TEXT NOT NULL,AccountReference TEXT NOT NULL,AccountHolder TEXT NOT NULL,AccountType INTEGER NOT NULL,BalanceDate TEXT NULL,Balance REAL NULL,Currency TEXT NOT NULL,ImportedAt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS Operations (Id INTEGER PRIMARY KEY AUTOINCREMENT,ImportId INTEGER NOT NULL,OperationDate TEXT NOT NULL,Nature TEXT NOT NULL,Debit REAL NOT NULL,Credit REAL NOT NULL,Currency TEXT NOT NULL,ValueDate TEXT NULL,InterbankLabel TEXT NOT NULL,Details TEXT NOT NULL,IsDeferredCardSummary INTEGER NOT NULL,FOREIGN KEY (ImportId) REFERENCES Imports(Id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS Meta (Key TEXT PRIMARY KEY, Value TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREATE INDEX IF NOT EXISTS IX_Imports_AccountId ON Imports(AccountId);"; command.ExecuteNonQuery();
+        ApplyOneTimeReset(connection);
     }
+
+    private static void ApplyOneTimeReset(SqliteConnection connection)
+    {
+        using var check = connection.CreateCommand();
+        check.CommandText = "SELECT Value FROM Meta WHERE Key='ResetVersion' LIMIT 1";
+        var current = check.ExecuteScalar()?.ToString();
+        if (string.Equals(current, ResetVersion, StringComparison.Ordinal)) return;
+
+        using var transaction = connection.BeginTransaction();
+        using (var clear = connection.CreateCommand())
+        {
+            clear.Transaction = transaction;
+            clear.CommandText = @"DELETE FROM Operations; DELETE FROM Imports; DELETE FROM Accounts; DELETE FROM sqlite_sequence WHERE name IN ('Operations','Imports');";
+            clear.ExecuteNonQuery();
+        }
+        using (var marker = connection.CreateCommand())
+        {
+            marker.Transaction = transaction;
+            marker.CommandText = "INSERT INTO Meta(Key,Value) VALUES('ResetVersion',$value) ON CONFLICT(Key) DO UPDATE SET Value=excluded.Value";
+            marker.Parameters.AddWithValue("$value", ResetVersion);
+            marker.ExecuteNonQuery();
+        }
+        transaction.Commit();
+    }
+
     private static SqliteConnection OpenConnection() { var c = new SqliteConnection(ConnectionString); c.Open(); using var p = c.CreateCommand(); p.CommandText = "PRAGMA foreign_keys = ON;"; p.ExecuteNonQuery(); return c; }
 
     public static BankingConfiguration LoadConfiguration()
