@@ -44,16 +44,56 @@ internal static class DuplicateAnalysisService
 
 internal sealed class DuplicateAnalysisForm : Form
 {
-    private readonly DataGridView _grid;private readonly Label _summary;
+    private readonly DataGridView _grid;
+    private readonly Label _summary;
+    private List<DuplicateCandidate> _candidates = new();
+    private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
+
     public DuplicateAnalysisForm()
     {
         Text="QNB - Analyse globale des doublons";StartPosition=FormStartPosition.CenterParent;Size=new Size(1450,780);MinimumSize=new Size(1050,600);BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",9F);
         var header=new Panel{Dock=DockStyle.Top,Height=82,Padding=new Padding(18,12,18,8),BackColor=Color.FromArgb(4,36,73)};header.Controls.Add(new Label{Text="Analyse globale des doublons",AutoSize=true,Font=new Font("Segoe UI Semibold",16F,FontStyle.Bold),ForeColor=Color.White,Location=new Point(18,10)});header.Controls.Add(new Label{Text="Comparaison indépendante de la banque et du compte • montant, date, devise et similarité des libellés",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Location=new Point(20,44)});_summary=new Label{AutoSize=true,Anchor=AnchorStyles.Top|AnchorStyles.Right,ForeColor=Color.FromArgb(58,196,187),Font=new Font("Segoe UI Semibold",10F,FontStyle.Bold),Location=new Point(1080,28)};header.Controls.Add(_summary);
         _grid=new DataGridView{Dock=DockStyle.Fill,ReadOnly=true,AllowUserToAddRows=false,AllowUserToDeleteRows=false,AutoGenerateColumns=false,AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.AllCells,BackgroundColor=Color.FromArgb(7,42,78),ForeColor=Color.FromArgb(20,30,45),SelectionMode=DataGridViewSelectionMode.FullRowSelect,MultiSelect=false};AddColumns();
-        var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=58,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(10),BackColor=Color.FromArgb(4,36,73)};var close=new Button{Text="Fermer",Width=110,Height=34,DialogResult=DialogResult.Cancel};var refresh=new Button{Text="Relancer l'analyse",Width=150,Height=34,BackColor=Color.FromArgb(34,149,255),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};refresh.Click+=(_,_)=>LoadCandidates();footer.Controls.Add(close);footer.Controls.Add(refresh);Controls.Add(_grid);Controls.Add(footer);Controls.Add(header);Shown+=(_,_)=>LoadCandidates();
+        var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=58,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(10),BackColor=Color.FromArgb(4,36,73)};
+        var close=new Button{Text="Fermer",Width=110,Height=34,DialogResult=DialogResult.Cancel};
+        var refresh=new Button{Text="Relancer l'analyse",Width=150,Height=34,BackColor=Color.FromArgb(34,149,255),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        var sort=new Button{Text="Tri 3 champs",Width=135,Height=34,BackColor=Color.FromArgb(16,112,187),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        refresh.Click+=(_,_)=>LoadCandidates();sort.Click+=(_,_)=>ConfigureSort();footer.Controls.Add(close);footer.Controls.Add(refresh);footer.Controls.Add(sort);Controls.Add(_grid);Controls.Add(footer);Controls.Add(header);Shown+=(_,_)=>LoadCandidates();
     }
+
     private void AddColumns(){Add("Niveau",75);Add("Score",55);Add("Date A",85);Add("Montant A",95);Add("Banque A",120);Add("Compte A",130);Add("Libellé A",220);Add("Date B",85);Add("Montant B",95);Add("Banque B",120);Add("Compte B",130);Add("Libellé B",220);Add("Motif",330);}
-    private void Add(string name,int width)=>_grid.Columns.Add(new DataGridViewTextBoxColumn{Name=name,HeaderText=name,Width=width});
-    private void LoadCandidates(){Cursor=Cursors.WaitCursor;try{var candidates=DuplicateAnalysisService.Analyze();_grid.Rows.Clear();var culture=CultureInfo.GetCultureInfo("fr-FR");foreach(var c in candidates)_grid.Rows.Add(c.Level,c.Score+"%",c.Left.Date.ToString("dd/MM/yyyy"),c.Left.Amount.ToString("N2",culture),c.Left.Bank,c.Left.Account,BestLabel(c.Left),c.Right.Date.ToString("dd/MM/yyyy"),c.Right.Amount.ToString("N2",culture),c.Right.Bank,c.Right.Account,BestLabel(c.Right),c.Reason);_summary.Text=$"{candidates.Count} paire(s) détectée(s)";}finally{Cursor=Cursors.Default;}}
+    private void Add(string name,int width)=>_grid.Columns.Add(new DataGridViewTextBoxColumn{Name=name,HeaderText=name,Width=width,SortMode=DataGridViewColumnSortMode.NotSortable});
+
+    private void ConfigureSort()
+    {
+        var fields = new[] { "Niveau", "Score", "Date A", "Montant A", "Banque A", "Compte A", "Libellé A", "Date B", "Montant B", "Banque B", "Compte B", "Libellé B", "Motif" };
+        var selected = MultiColumnSortDialog.Select(this, fields, _sortCriteria);
+        if (selected is null) return;
+        _sortCriteria = selected;
+        RenderCandidates();
+    }
+
+    private void LoadCandidates()
+    {
+        Cursor=Cursors.WaitCursor;
+        try { _candidates=DuplicateAnalysisService.Analyze(); RenderCandidates(); }
+        finally { Cursor=Cursors.Default; }
+    }
+
+    private void RenderCandidates()
+    {
+        var selectors = new Dictionary<string, Func<DuplicateCandidate, object?>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Niveau"] = x => x.Level, ["Score"] = x => x.Score, ["Date A"] = x => x.Left.Date, ["Montant A"] = x => x.Left.Amount,
+            ["Banque A"] = x => x.Left.Bank, ["Compte A"] = x => x.Left.Account, ["Libellé A"] = x => BestLabel(x.Left),
+            ["Date B"] = x => x.Right.Date, ["Montant B"] = x => x.Right.Amount, ["Banque B"] = x => x.Right.Bank,
+            ["Compte B"] = x => x.Right.Account, ["Libellé B"] = x => BestLabel(x.Right), ["Motif"] = x => x.Reason
+        };
+        var rows = MultiColumnSorter.Apply(_candidates, _sortCriteria, selectors);
+        _grid.Rows.Clear();var culture=CultureInfo.GetCultureInfo("fr-FR");
+        foreach(var c in rows)_grid.Rows.Add(c.Level,c.Score+"%",c.Left.Date.ToString("dd/MM/yyyy"),c.Left.Amount.ToString("N2",culture),c.Left.Bank,c.Left.Account,BestLabel(c.Left),c.Right.Date.ToString("dd/MM/yyyy"),c.Right.Amount.ToString("N2",culture),c.Right.Bank,c.Right.Account,BestLabel(c.Right),c.Reason);
+        _summary.Text=$"{_candidates.Count} paire(s) détectée(s)";
+    }
+
     private static string BestLabel(DuplicateOperation operation)=>string.IsNullOrWhiteSpace(operation.Label)?operation.Nature:operation.Label;
 }
