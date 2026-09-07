@@ -96,14 +96,16 @@ internal sealed class OperationSourcesForm : Form
     {
         var account = SelectedAccount();
         if (account is null) return;
-        var imports = BankingRepository.GetAccountImportCount(account.Id);
+        var imports = BankingRepository.LoadImports().Count(x => x.AccountId == account.Id);
         if (imports > 0)
         {
             MessageBox.Show($"Cette source est liée à {imports} import(s). Elle ne peut pas être supprimée afin de préserver l'historique des opérations.", "QNB - Source utilisée", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         if (MessageBox.Show($"Supprimer la source « {account.DisplayName} » ?", "QNB - Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        BankingRepository.DeleteAccount(account.Id);
+        var configuration = BankingRepository.LoadConfiguration();
+        configuration.Accounts.RemoveAll(x => x.Id == account.Id);
+        BankingRepository.SaveConfiguration(configuration);
         Reload();
     }
 
