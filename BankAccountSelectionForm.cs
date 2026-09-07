@@ -60,7 +60,7 @@ internal sealed class BankAccountSelectionForm : Form
 
         var note = new Label
         {
-            Text = "Pour une carte bancaire à débit différé, choisissez « Carte différée ». QNB pourra alors isoler les débits globaux de carte dans le tableau de bord.",
+            Text = "Si la source existe déjà, sélectionnez-la dans la liste. Une nouvelle source identique annule l'importation afin d'éviter les doublons de source.",
             Dock = DockStyle.Fill,
             ForeColor = Color.FromArgb(183, 207, 229),
             AutoSize = false,
@@ -108,7 +108,28 @@ internal sealed class BankAccountSelectionForm : Form
             return;
         }
 
-        var account = _existingAccounts.SelectedItem as BankAccountProfile ?? new BankAccountProfile();
+        if (_existingAccounts.SelectedItem is not BankAccountProfile existing)
+        {
+            var duplicate = SourceDataService.FindDuplicateSource(
+                _bankName.Text,
+                _accountName.Text,
+                _accountReference.Text);
+
+            if (duplicate is not null)
+            {
+                MessageBox.Show(
+                    $"La source « {duplicate.DisplayName} » existe déjà et n'a pas été supprimée.\n\nL'importation est annulée. Relancez l'importation puis sélectionnez cette source existante.",
+                    "QNB - Source déjà existante",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                SelectedAccount = null;
+                DialogResult = DialogResult.Cancel;
+                Close();
+                return;
+            }
+        }
+
+        var account = existing ?? new BankAccountProfile();
         account.BankName = _bankName.Text.Trim();
         account.AccountName = _accountName.Text.Trim();
         account.AccountReference = _accountReference.Text.Trim();
