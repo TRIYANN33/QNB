@@ -6,6 +6,7 @@ internal static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
+        Application.AddMessageFilter(new DuplicateButtonMessageFilter());
         Application.Run(new MainForm());
     }
 }
