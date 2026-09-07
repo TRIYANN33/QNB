@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
 
 namespace QNB;
 
@@ -164,29 +163,8 @@ internal static class BankImportService
             };
         }
 
-        var filtered = new BankImportResult
-        {
-            SourceFile = result.SourceFile,
-            AccountId = result.AccountId,
-            BankName = result.BankName,
-            AccountDisplayName = result.AccountDisplayName,
-            AccountReference = result.AccountReference,
-            AccountHolder = result.AccountHolder,
-            AccountType = result.AccountType,
-            BalanceDate = result.BalanceDate,
-            Balance = result.Balance,
-            Currency = result.Currency,
-            Operations = check.NewOperations
-        };
-
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QNB", "Imports");
-        Directory.CreateDirectory(directory);
-
-        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
-        var path = Path.Combine(directory, $"import-{stamp}.json");
-        var json = JsonSerializer.Serialize(filtered, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(path, json, Encoding.UTF8);
-
+        var filtered = CloneWithOperations(result, check.NewOperations);
+        var path = BankingRepository.SaveImport(filtered);
         return new ImportSaveResult
         {
             SavedPath = path,
@@ -212,9 +190,7 @@ internal static class BankImportService
                 MessageBoxIcon.Warning);
         }
 
-        result.Operations = check.NewOperations;
-
-        if (result.Operations.Count == 0)
+        if (check.NewCount == 0)
         {
             MessageBox.Show(
                 "Aucune nouvelle opération à importer. Toutes les lignes du relevé existent déjà pour ce compte.",
@@ -224,14 +200,26 @@ internal static class BankImportService
             return string.Empty;
         }
 
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QNB", "Imports");
-        Directory.CreateDirectory(directory);
+        var filtered = CloneWithOperations(result, check.NewOperations);
+        return BankingRepository.SaveImport(filtered);
+    }
 
-        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
-        var path = Path.Combine(directory, $"import-{stamp}.json");
-        var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(path, json, Encoding.UTF8);
-        return path;
+    private static BankImportResult CloneWithOperations(BankImportResult result, List<BankOperation> operations)
+    {
+        return new BankImportResult
+        {
+            SourceFile = result.SourceFile,
+            AccountId = result.AccountId,
+            BankName = result.BankName,
+            AccountDisplayName = result.AccountDisplayName,
+            AccountReference = result.AccountReference,
+            AccountHolder = result.AccountHolder,
+            AccountType = result.AccountType,
+            BalanceDate = result.BalanceDate,
+            Balance = result.Balance,
+            Currency = result.Currency,
+            Operations = operations
+        };
     }
 
     private static bool SameAccount(BankImportResult left, BankImportResult right)
