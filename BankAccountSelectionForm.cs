@@ -108,7 +108,8 @@ internal sealed class BankAccountSelectionForm : Form
             return;
         }
 
-        if (_existingAccounts.SelectedItem is not BankAccountProfile existing)
+        var existing = _existingAccounts.SelectedItem as BankAccountProfile;
+        if (existing is null)
         {
             var duplicate = SourceDataService.FindDuplicateSource(
                 _bankName.Text,
