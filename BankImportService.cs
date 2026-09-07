@@ -1,5 +1,7 @@
+using ExcelDataReader;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace QNB;
 
@@ -105,6 +107,174 @@ internal static class BankImportService
 
         DetectDeferredCardSummaries(result);
         return result;
+    }
+
+    public static BankImportResult ImportExcel(string filePath)
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = ExcelReaderFactory.CreateReader(stream);
+
+        do
+        {
+            var rows = new List<List<object?>>();
+            while (reader.Read())
+            {
+                var row = new List<object?>(reader.FieldCount);
+                for (var column = 0; column < reader.FieldCount; column++)
+                    row.Add(reader.GetValue(column));
+                rows.Add(row);
+            }
+
+            var headerIndex = FindExcelHeader(rows);
+            if (headerIndex >= 0)
+                return ParseExcelStatement(filePath, rows, headerIndex);
+        }
+        while (reader.NextResult());
+
+        throw new InvalidDataException("Aucune feuille Excel contenant les colonnes Date, Libellé, Débit et Crédit n'a été détectée.");
+    }
+
+    private static BankImportResult ParseExcelStatement(string filePath, List<List<object?>> rows, int headerIndex)
+    {
+        var result = new BankImportResult
+        {
+            SourceFile = filePath,
+            Currency = "EUR"
+        };
+
+        for (var i = 0; i < headerIndex; i++)
+        {
+            var first = ExcelCellText(rows[i], 0);
+            var second = ExcelCellText(rows[i], 1);
+
+            if (first.StartsWith("Compte ", StringComparison.OrdinalIgnoreCase))
+            {
+                var match = Regex.Match(first, @"n\s*[°º]?\s*([A-Z0-9 ]+)$", RegexOptions.IgnoreCase);
+                result.AccountReference = match.Success ? match.Groups[1].Value.Trim() : first.Trim();
+                result.AccountHolder = FindPreviousNonEmpty(rows, i);
+            }
+
+            if (second.StartsWith("Solde au ", StringComparison.OrdinalIgnoreCase))
+            {
+                result.BalanceDate = ParseDate(second["Solde au ".Length..]);
+                result.Balance = ExcelCellAmount(rows[i], 2);
+            }
+        }
+
+        if (rows.Take(headerIndex).Any(row => ExcelCellText(row, 0).StartsWith("Téléchargement du ", StringComparison.OrdinalIgnoreCase))
+            && rows.Take(headerIndex).Any(row => ExcelCellText(row, 0).StartsWith("Compte courant", StringComparison.OrdinalIgnoreCase)))
+        {
+            result.BankName = "Crédit Agricole";
+        }
+
+        for (var i = headerIndex + 1; i < rows.Count; i++)
+        {
+            var date = ExcelCellDate(rows[i], 0);
+            if (!date.HasValue) continue;
+
+            var label = ExcelCellText(rows[i], 1).Trim();
+            var debitValue = ExcelCellAmount(rows[i], 2) ?? 0m;
+            var creditValue = ExcelCellAmount(rows[i], 3) ?? 0m;
+
+            if (string.IsNullOrWhiteSpace(label) && debitValue == 0m && creditValue == 0m)
+                continue;
+
+            result.Operations.Add(new BankOperation
+            {
+                Date = date.Value,
+                Nature = ExtractNature(label),
+                Debit = debitValue == 0m ? 0m : -Math.Abs(debitValue),
+                Credit = creditValue == 0m ? 0m : Math.Abs(creditValue),
+                Currency = result.Currency,
+                InterbankLabel = label,
+                Details = label.Contains('\n') ? label.Replace("\r", string.Empty).Replace("\n", " | ") : string.Empty
+            });
+        }
+
+        if (result.Operations.Count == 0)
+            throw new InvalidDataException("Aucune opération bancaire n'a été détectée dans le fichier Excel.");
+
+        DetectDeferredCardSummaries(result);
+        return result;
+    }
+
+    private static int FindExcelHeader(List<List<object?>> rows)
+    {
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (string.Equals(ExcelCellText(rows[i], 0).Trim(), "Date", StringComparison.OrdinalIgnoreCase)
+                && ExcelCellText(rows[i], 1).Contains("Libell", StringComparison.OrdinalIgnoreCase)
+                && ExcelCellText(rows[i], 2).Contains("Débit", StringComparison.OrdinalIgnoreCase)
+                && ExcelCellText(rows[i], 3).Contains("Crédit", StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+        return -1;
+    }
+
+    private static string FindPreviousNonEmpty(List<List<object?>> rows, int beforeIndex)
+    {
+        for (var i = beforeIndex - 1; i >= 0; i--)
+        {
+            var value = ExcelCellText(rows[i], 0).Trim();
+            if (!string.IsNullOrWhiteSpace(value)) return value;
+        }
+        return string.Empty;
+    }
+
+    private static string ExtractNature(string label)
+    {
+        if (string.IsNullOrWhiteSpace(label)) return string.Empty;
+        var firstLine = label.Replace("\r", string.Empty).Split('\n')[0].Trim();
+        var separator = firstLine.IndexOf(" - ", StringComparison.Ordinal);
+        return separator > 0 ? firstLine[..separator].Trim() : firstLine;
+    }
+
+    private static string ExcelCellText(IReadOnlyList<object?> row, int column)
+    {
+        if (column < 0 || column >= row.Count || row[column] is null) return string.Empty;
+        var value = row[column];
+        return value switch
+        {
+            DateTime date => date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
+            double number => number.ToString(CultureInfo.InvariantCulture),
+            float number => number.ToString(CultureInfo.InvariantCulture),
+            decimal number => number.ToString(CultureInfo.InvariantCulture),
+            _ => Convert.ToString(value, CultureInfo.GetCultureInfo("fr-FR")) ?? string.Empty
+        };
+    }
+
+    private static DateTime? ExcelCellDate(IReadOnlyList<object?> row, int column)
+    {
+        if (column < 0 || column >= row.Count || row[column] is null) return null;
+        var value = row[column];
+        if (value is DateTime date) return date.Date;
+        if (value is double oa && oa > 1 && oa < 100000)
+        {
+            try { return DateTime.FromOADate(oa).Date; }
+            catch { }
+        }
+
+        var text = ExcelCellText(row, column).Trim();
+        if (DateTime.TryParseExact(text, new[] { "dd/MM/yyyy", "d/M/yyyy", "dd/MM/yy", "d/M/yy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+            return parsed.Date;
+        return null;
+    }
+
+    private static decimal? ExcelCellAmount(IReadOnlyList<object?> row, int column)
+    {
+        if (column < 0 || column >= row.Count || row[column] is null) return null;
+        var value = row[column];
+        return value switch
+        {
+            decimal d => d,
+            double d => Convert.ToDecimal(d, CultureInfo.InvariantCulture),
+            float f => Convert.ToDecimal(f, CultureInfo.InvariantCulture),
+            int i => i,
+            long l => l,
+            _ => ParseAmountNullable(ExcelCellText(row, column))
+        };
     }
 
     public static void BindAccount(BankImportResult result, BankAccountProfile account)
@@ -317,13 +487,17 @@ internal static class BankImportService
         column >= 0 && column < row.Count ? row[column] : string.Empty;
 
     private static DateTime? ParseDate(string text) =>
-        DateTime.TryParseExact(text.Trim(), "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ? value : null;
+        DateTime.TryParseExact(text.Trim(), new[] { "dd/MM/yyyy", "d/M/yyyy", "dd/MM/yy", "d/M/yy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ? value : null;
 
     private static decimal ParseAmount(string text) => ParseAmountNullable(text) ?? 0m;
 
     private static decimal? ParseAmountNullable(string text)
     {
-        var normalized = text.Trim().Replace(" ", string.Empty).Replace("\u00A0", string.Empty);
+        var normalized = text.Trim()
+            .Replace("€", string.Empty)
+            .Replace(" ", string.Empty)
+            .Replace("\u00A0", string.Empty)
+            .Replace("\u202F", string.Empty);
         if (string.IsNullOrWhiteSpace(normalized)) return null;
         return decimal.TryParse(normalized, NumberStyles.Number | NumberStyles.AllowLeadingSign, CultureInfo.GetCultureInfo("fr-FR"), out var value) ? value : null;
     }
