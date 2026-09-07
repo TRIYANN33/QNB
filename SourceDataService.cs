@@ -83,6 +83,7 @@ WHERE ImportId IN (SELECT Id FROM Imports WHERE AccountId = $accountId);";
         string bankName,
         string accountName,
         string accountReference,
+        DateTime? sourceDate,
         Guid? ignoreId = null)
     {
         static string Normalize(string? value) =>
@@ -91,11 +92,13 @@ WHERE ImportId IN (SELECT Id FROM Imports WHERE AccountId = $accountId);";
         var bank = Normalize(bankName);
         var name = Normalize(accountName);
         var reference = Normalize(accountReference);
+        var date = sourceDate?.Date;
 
         foreach (var account in BankingRepository.LoadConfiguration().Accounts)
         {
             if (ignoreId.HasValue && account.Id == ignoreId.Value) continue;
             if (Normalize(account.BankName) != bank) continue;
+            if (account.SourceDate?.Date != date) continue;
 
             var sameReference = !string.IsNullOrWhiteSpace(reference)
                 && Normalize(account.AccountReference) == reference;
