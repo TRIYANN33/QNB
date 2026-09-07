@@ -10,7 +10,7 @@ internal sealed class DashboardBankingStats { public int Documents { get; set; }
 
 internal static class BankingRepository
 {
-    private const string ResetVersion = "2026-09-07-clean-2";
+    private const string ResetVersion = "2026-09-07-clean-3";
     private static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QNB");
     private static string DatabasePath => Path.Combine(Root, "qnb.db");
     private static string ConnectionString => $"Data Source={DatabasePath}";
