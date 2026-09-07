@@ -33,6 +33,22 @@ internal sealed class BankOperation
     public decimal Amount => Credit + Debit;
 }
 
+internal sealed class ImportDuplicateCheckResult
+{
+    public int TotalOperations { get; set; }
+    public List<BankOperation> NewOperations { get; set; } = new();
+    public List<BankOperation> DuplicateOperations { get; set; } = new();
+    public int DuplicateCount => DuplicateOperations.Count;
+    public int NewCount => NewOperations.Count;
+}
+
+internal sealed class ImportSaveResult
+{
+    public string? SavedPath { get; set; }
+    public int ImportedCount { get; set; }
+    public int DuplicateCount { get; set; }
+}
+
 internal static class BankImportService
 {
     public static BankImportResult ImportCsv(string filePath)
@@ -112,16 +128,121 @@ internal static class BankImportService
         }
     }
 
-    public static string SaveImport(BankImportResult result)
+    public static ImportDuplicateCheckResult CheckDuplicates(BankImportResult result)
     {
+        var check = new ImportDuplicateCheckResult { TotalOperations = result.Operations.Count };
+        var known = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var previousImport in BankingRepository.LoadImports().Where(previous => SameAccount(previous, result)))
+        {
+            foreach (var operation in previousImport.Operations)
+                known.Add(BuildOperationFingerprint(operation));
+        }
+
+        foreach (var operation in result.Operations)
+        {
+            var fingerprint = BuildOperationFingerprint(operation);
+            if (!known.Add(fingerprint))
+                check.DuplicateOperations.Add(operation);
+            else
+                check.NewOperations.Add(operation);
+        }
+
+        return check;
+    }
+
+    public static ImportSaveResult SaveImportWithoutDuplicates(BankImportResult result)
+    {
+        var check = CheckDuplicates(result);
+        if (check.NewCount == 0)
+        {
+            return new ImportSaveResult
+            {
+                SavedPath = null,
+                ImportedCount = 0,
+                DuplicateCount = check.DuplicateCount
+            };
+        }
+
+        var filtered = new BankImportResult
+        {
+            SourceFile = result.SourceFile,
+            AccountId = result.AccountId,
+            BankName = result.BankName,
+            AccountDisplayName = result.AccountDisplayName,
+            AccountReference = result.AccountReference,
+            AccountHolder = result.AccountHolder,
+            AccountType = result.AccountType,
+            BalanceDate = result.BalanceDate,
+            Balance = result.Balance,
+            Currency = result.Currency,
+            Operations = check.NewOperations
+        };
+
         var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QNB", "Imports");
         Directory.CreateDirectory(directory);
 
         var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
         var path = Path.Combine(directory, $"import-{stamp}.json");
-        var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
+        var json = JsonSerializer.Serialize(filtered, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(path, json, Encoding.UTF8);
-        return path;
+
+        return new ImportSaveResult
+        {
+            SavedPath = path,
+            ImportedCount = check.NewCount,
+            DuplicateCount = check.DuplicateCount
+        };
+    }
+
+    public static string SaveImport(BankImportResult result)
+    {
+        var save = SaveImportWithoutDuplicates(result);
+        return save.SavedPath ?? string.Empty;
+    }
+
+    private static bool SameAccount(BankImportResult left, BankImportResult right)
+    {
+        if (left.AccountId.HasValue && right.AccountId.HasValue)
+            return left.AccountId.Value == right.AccountId.Value;
+
+        return Normalize(left.BankName) == Normalize(right.BankName)
+            && Normalize(left.AccountReference) == Normalize(right.AccountReference);
+    }
+
+    private static string BuildOperationFingerprint(BankOperation operation)
+    {
+        return string.Join("|",
+            operation.Date.Date.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+            operation.ValueDate?.Date.ToString("yyyyMMdd", CultureInfo.InvariantCulture) ?? string.Empty,
+            operation.Debit.ToString("0.00##", CultureInfo.InvariantCulture),
+            operation.Credit.ToString("0.00##", CultureInfo.InvariantCulture),
+            Normalize(operation.Currency),
+            Normalize(operation.Nature),
+            Normalize(operation.InterbankLabel),
+            Normalize(operation.Details));
+    }
+
+    private static string Normalize(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        var text = value.Trim().ToUpperInvariant();
+        var builder = new StringBuilder(text.Length);
+        var previousWasSpace = false;
+        foreach (var ch in text)
+        {
+            if (char.IsWhiteSpace(ch))
+            {
+                if (!previousWasSpace) builder.Append(' ');
+                previousWasSpace = true;
+            }
+            else
+            {
+                builder.Append(ch);
+                previousWasSpace = false;
+            }
+        }
+        return builder.ToString();
     }
 
     private static void DetectDeferredCardSummaries(BankImportResult result)
