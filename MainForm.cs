@@ -8,6 +8,8 @@ public sealed class MainForm : Form
     private Label _dateTimeLabel = null!;
     private Label _documentsValue = null!;
     private Label _operationsValue = null!;
+    private Label _accountsValue = null!;
+    private Label _deferredCardsValue = null!;
     private readonly System.Windows.Forms.Timer _clockTimer;
 
     private static readonly Color Navy950 = Color.FromArgb(3, 23, 49);
@@ -34,7 +36,6 @@ public sealed class MainForm : Form
         AutoScaleMode = AutoScaleMode.Dpi;
 
         var usageInfo = AppUsageInfo.LoadAndRegisterCurrentUse();
-
         var root = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -50,6 +51,7 @@ public sealed class MainForm : Form
         root.Controls.Add(BuildDashboard(usageInfo), 1, 0);
         Controls.Add(root);
 
+        RefreshDashboardStats();
         UpdateDateTime();
         _clockTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _clockTimer.Tick += (_, _) => UpdateDateTime();
@@ -97,8 +99,12 @@ public sealed class MainForm : Form
 
         var menu = new FlowLayoutPanel
         {
-            Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false,
-            AutoScroll = true, BackColor = Color.Transparent, Padding = new Padding(0, 2, 0, 2)
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.TopDown,
+            WrapContents = false,
+            AutoScroll = true,
+            BackColor = Color.Transparent,
+            Padding = new Padding(0, 2, 0, 2)
         };
 
         var items = new (string Icon, string Text)[]
@@ -114,9 +120,12 @@ public sealed class MainForm : Form
 
         var footer = new Label
         {
-            Text = "PERFORMANCE\nCONFIANCE\nAVENIR", Dock = DockStyle.Fill,
-            ForeColor = Color.FromArgb(111, 176, 230), Font = new Font("Segoe UI", 7.5F),
-            TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(9, 0, 0, 0)
+            Text = "PERFORMANCE\nCONFIANCE\nAVENIR",
+            Dock = DockStyle.Fill,
+            ForeColor = Color.FromArgb(111, 176, 230),
+            Font = new Font("Segoe UI", 7.5F),
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(9, 0, 0, 0)
         };
 
         layout.Controls.Add(brand, 0, 0);
@@ -131,8 +140,12 @@ public sealed class MainForm : Form
         var host = new StadiumPanel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Navy950, Padding = new Padding(10, 0, 0, 0) };
         var content = new TableLayoutPanel
         {
-            Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, RowCount = 6,
-            BackColor = Color.Transparent, Padding = new Padding(12, 4, 12, 12)
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 1,
+            RowCount = 6,
+            BackColor = Color.Transparent,
+            Padding = new Padding(12, 4, 12, 12)
         };
         content.Controls.Add(BuildHero(), 0, 0);
         content.Controls.Add(BuildKpis(), 0, 1);
@@ -148,8 +161,13 @@ public sealed class MainForm : Form
     {
         var hero = new RoundedPanel
         {
-            Height = 190, Dock = DockStyle.Top, Radius = 26, BackColor = Navy900,
-            BorderColor = Color.FromArgb(24, 103, 170), BorderWidth = 1, Margin = new Padding(0, 0, 0, 12)
+            Height = 190,
+            Dock = DockStyle.Top,
+            Radius = 26,
+            BackColor = Navy900,
+            BorderColor = Color.FromArgb(24, 103, 170),
+            BorderWidth = 1,
+            Margin = new Padding(0, 0, 0, 12)
         };
         hero.Paint += PaintHero;
         hero.Controls.Add(new PictureBox
@@ -169,9 +187,9 @@ public sealed class MainForm : Form
         });
         hero.Controls.Add(new Label
         {
-            Text = "VOS DONNÉES\nNOTRE EXPERTISE\nVOTRE AVENIR", AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            ForeColor = Color.White, BackColor = Color.Transparent, Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold),
-            Location = new Point(760, 74), Name = "heroSlogan"
+            Name = "heroSlogan", Text = "VOS DONNÉES\nNOTRE EXPERTISE\nVOTRE AVENIR", AutoSize = true,
+            Anchor = AnchorStyles.Top | AnchorStyles.Right, ForeColor = Color.White, BackColor = Color.Transparent,
+            Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold), Location = new Point(760, 74)
         });
         _dateTimeLabel = new Label
         {
@@ -191,12 +209,21 @@ public sealed class MainForm : Form
 
     private Control BuildKpis()
     {
-        var grid = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 4, RowCount = 1, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 12) };
-        for (var i = 0; i < 4; i++) grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+        var grid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            ColumnCount = 5,
+            RowCount = 1,
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, 0, 0, 12)
+        };
+        for (var i = 0; i < 5; i++) grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
         grid.Controls.Add(CreateKpiCard("Documents", "0", "Fichiers importés", "▤", Blue, out _documentsValue), 0, 0);
         grid.Controls.Add(CreateKpiCard("Opérations", "0", "Lignes analysées", "≡", Teal, out _operationsValue), 1, 0);
-        grid.Controls.Add(CreateKpiCard("Contrôles", "0", "Anomalies détectées", "✓", Rose, out _), 2, 0);
-        grid.Controls.Add(CreateKpiCard("Doublons", "0", "Doublons trouvés", "◉", Violet, out _), 3, 0);
+        grid.Controls.Add(CreateKpiCard("Comptes", "0", "Banques & comptes", "▣", Amber, out _accountsValue), 2, 0);
+        grid.Controls.Add(CreateKpiCard("Cartes différées", "0 €", "Débits globaux détectés", "◈", Violet, out _deferredCardsValue), 3, 0);
+        grid.Controls.Add(CreateKpiCard("Doublons", "0", "Doublons trouvés", "◉", Rose, out _), 4, 0);
         return grid;
     }
 
@@ -228,7 +255,7 @@ public sealed class MainForm : Form
         AddDetailRow(details, 0, "Date de création", FormatDateTime(usageInfo.CreationDate));
         AddDetailRow(details, 1, "Dernière utilisation", usageInfo.PreviousUseDate.HasValue ? FormatDateTime(usageInfo.PreviousUseDate.Value) : "Première utilisation");
         AddDetailRow(details, 2, "Dernière modification", FormatDateTime(GetApplicationLastModificationDate()));
-        AddDetailRow(details, 3, "Version", "1.0.0  •  .NET 6");
+        AddDetailRow(details, 3, "Version", "1.1.0  •  .NET 6");
         card.Controls.Add(details);
 
         var calendar = new RoundedPanel
@@ -264,9 +291,9 @@ public sealed class MainForm : Form
         grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
         var actions = new (string Icon, string Text, Color Color)[]
         {
-            ("⇩", "Importer un relevé", Blue), ("✓", "Lancer les contrôles", Navy700),
+            ("⇩", "Importer un relevé", Blue), ("≡", "Opérations", Navy700),
             ("▥", "Voir les résultats", Teal), ("▣", "Accéder au patrimoine", Color.FromArgb(129, 91, 27)),
-            ("≡", "Opérations", Navy700), ("◆", "Classification", Violet),
+            ("✓", "Lancer les contrôles", Navy700), ("◆", "Classification", Violet),
             ("◉", "Analyser les doublons", Rose), ("↻", "Actualiser le classeur", Navy700)
         };
         for (var i = 0; i < actions.Length; i++)
@@ -290,10 +317,9 @@ public sealed class MainForm : Form
         button.Resize += (_, _) => SetRoundedRegion(button, 12);
         button.Click += (_, _) =>
         {
-            if (text.StartsWith("Importation", StringComparison.OrdinalIgnoreCase))
-                ImportDocument();
-            else
-                MessageBox.Show($"Module « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (text.StartsWith("Importation", StringComparison.OrdinalIgnoreCase)) ImportDocument();
+            else if (string.Equals(text, "Opérations", StringComparison.OrdinalIgnoreCase)) ShowOperations();
+            else MessageBox.Show($"Module « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         return button;
     }
@@ -314,10 +340,9 @@ public sealed class MainForm : Form
         button.Resize += (_, _) => SetRoundedRegion(button, 14);
         button.Click += (_, _) =>
         {
-            if (text.StartsWith("Importer", StringComparison.OrdinalIgnoreCase))
-                ImportDocument();
-            else
-                MessageBox.Show($"Action « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (text.StartsWith("Importer", StringComparison.OrdinalIgnoreCase)) ImportDocument();
+            else if (string.Equals(text, "Opérations", StringComparison.OrdinalIgnoreCase)) ShowOperations();
+            else MessageBox.Show($"Action « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         return button;
     }
@@ -333,51 +358,55 @@ public sealed class MainForm : Form
             CheckFileExists = true
         };
 
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-            return;
-
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
         var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
         if (extension != ".csv")
         {
-            MessageBox.Show(
-                "Cette première version de l'importation est configurée pour le relevé bancaire CSV joint.\n\nLe support PDF et Excel sera ajouté ensuite.",
-                "QNB - Importation",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            MessageBox.Show("Cette version prend en charge les relevés CSV. Le support PDF et Excel sera ajouté ensuite.", "QNB - Importation", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
         try
         {
             var result = BankImportService.ImportCsv(dialog.FileName);
-            using var preview = new ImportPreviewForm(result);
-            if (preview.ShowDialog(this) != DialogResult.OK)
+
+            using var accountForm = new BankAccountSelectionForm(result);
+            if (accountForm.ShowDialog(this) != DialogResult.OK || accountForm.SelectedAccount is null)
                 return;
+            BankImportService.BindAccount(result, accountForm.SelectedAccount);
+
+            using var preview = new ImportPreviewForm(result);
+            if (preview.ShowDialog(this) != DialogResult.OK) return;
 
             BankImportService.SaveImport(result);
-            _documentsValue.Text = (ParseCounter(_documentsValue.Text) + 1).ToString(CultureInfo.InvariantCulture);
-            _operationsValue.Text = (ParseCounter(_operationsValue.Text) + result.Operations.Count).ToString("N0", CultureInfo.GetCultureInfo("fr-FR"));
+            RefreshDashboardStats();
 
+            var deferredCount = result.Operations.Count(x => x.IsDeferredCardSummary);
             MessageBox.Show(
-                $"Importation terminée avec succès.\n\n{result.Operations.Count} opération(s) ont été intégrées dans QNB.",
+                $"Importation terminée avec succès.\n\nBanque : {result.BankName}\nCompte : {result.AccountDisplayName}\nOpérations : {result.Operations.Count}\nDébits carte différée détectés : {deferredCount}",
                 "QNB - Importation réussie",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(
-                "Impossible d'importer ce fichier.\n\n" + ex.Message,
-                "QNB - Erreur d'importation",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
+            MessageBox.Show("Impossible d'importer ce fichier.\n\n" + ex.Message, "QNB - Erreur d'importation", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
-    private static int ParseCounter(string text)
+    private void ShowOperations()
     {
-        var cleaned = new string(text.Where(char.IsDigit).ToArray());
-        return int.TryParse(cleaned, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : 0;
+        using var form = new OperationsForm();
+        form.ShowDialog(this);
+    }
+
+    private void RefreshDashboardStats()
+    {
+        var stats = BankingRepository.GetDashboardStats();
+        _documentsValue.Text = stats.Documents.ToString("N0", CultureInfo.GetCultureInfo("fr-FR"));
+        _operationsValue.Text = stats.Operations.ToString("N0", CultureInfo.GetCultureInfo("fr-FR"));
+        _accountsValue.Text = stats.Accounts.ToString("N0", CultureInfo.GetCultureInfo("fr-FR"));
+        _deferredCardsValue.Text = stats.DeferredCardAmount.ToString("N2", CultureInfo.GetCultureInfo("fr-FR")) + " €";
     }
 
     private static Control CreateKpiCard(string title, string value, string subtitle, string icon, Color accent, out Label valueLabel)
@@ -386,11 +415,11 @@ public sealed class MainForm : Form
         var iconBox = new RoundedPanel { Radius = 14, BackColor = Darken(accent, 35), BorderColor = accent, BorderWidth = 1, Size = new Size(48, 48), Location = new Point(15, 14) };
         iconBox.Controls.Add(new Label { Text = icon, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.White, Font = new Font("Segoe UI Symbol", 17F, FontStyle.Bold) });
         card.Controls.Add(iconBox);
-        card.Controls.Add(new Label { Text = title, AutoSize = true, ForeColor = TextSoft, Font = new Font("Segoe UI", 9F), Location = new Point(77, 15) });
-        valueLabel = new Label { Text = value, AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 22F, FontStyle.Bold), Location = new Point(75, 32) };
+        card.Controls.Add(new Label { Text = title, AutoSize = true, ForeColor = TextSoft, Font = new Font("Segoe UI", 8.3F), Location = new Point(72, 15) });
+        valueLabel = new Label { Text = value, AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 18F, FontStyle.Bold), Location = new Point(70, 34) };
         card.Controls.Add(valueLabel);
-        card.Controls.Add(new Label { Text = subtitle, AutoSize = true, ForeColor = TextSoft, Font = new Font("Segoe UI", 8F), Location = new Point(17, 78) });
-        card.Controls.Add(new RoundedPanel { Radius = 3, BackColor = accent, Size = new Size(90, 5), Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Location = new Point(17, 96) });
+        card.Controls.Add(new Label { Text = subtitle, AutoSize = true, ForeColor = TextSoft, Font = new Font("Segoe UI", 7.5F), Location = new Point(17, 78) });
+        card.Controls.Add(new RoundedPanel { Radius = 3, BackColor = accent, Size = new Size(80, 5), Anchor = AnchorStyles.Bottom | AnchorStyles.Left, Location = new Point(17, 96) });
         return card;
     }
 
@@ -422,7 +451,9 @@ public sealed class MainForm : Form
         {
             for (var i = -2; i <= 2; i++) e.Graphics.DrawLine(beamPen, p.X, p.Y, p.X + i * 80, rect.Height);
             using var lamp = new SolidBrush(Color.FromArgb(235, 236, 249, 255));
-            for (var x = -1; x <= 1; x++) for (var y = -1; y <= 1; y++) e.Graphics.FillEllipse(lamp, p.X + x * 7 - 3, p.Y + y * 7 - 3, 6, 6);
+            for (var x = -1; x <= 1; x++)
+                for (var y = -1; y <= 1; y++)
+                    e.Graphics.FillEllipse(lamp, p.X + x * 7 - 3, p.Y + y * 7 - 3, 6, 6);
         }
     }
 
