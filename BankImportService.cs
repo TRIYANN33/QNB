@@ -33,8 +33,8 @@ internal static class BankImportService
 {
     public static BankImportResult ImportCsv(string filePath)
     {
-        var lines = File.ReadAllLines(filePath, Encoding.UTF8);
-        if (lines.Length < 7)
+        var lines = ReadAllLinesShared(filePath);
+        if (lines.Count < 7)
             throw new InvalidDataException("Le fichier CSV ne contient pas suffisamment de lignes.");
 
         var rows = lines.Select(ParseCsvLine).ToList();
@@ -100,6 +100,23 @@ internal static class BankImportService
         var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(path, json, Encoding.UTF8);
         return path;
+    }
+
+    private static List<string> ReadAllLinesShared(string filePath)
+    {
+        var lines = new List<string>();
+
+        using var stream = new FileStream(
+            filePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        while (reader.ReadLine() is { } line)
+            lines.Add(line);
+
+        return lines;
     }
 
     private static List<string> ParseCsvLine(string line)
