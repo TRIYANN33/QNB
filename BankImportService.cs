@@ -6,26 +6,30 @@ namespace QNB;
 
 internal sealed class BankImportResult
 {
-    public string SourceFile { get; init; } = string.Empty;
-    public string BankName { get; init; } = string.Empty;
-    public string AccountReference { get; init; } = string.Empty;
-    public string AccountHolder { get; init; } = string.Empty;
-    public DateTime? BalanceDate { get; init; }
-    public decimal? Balance { get; init; }
-    public string Currency { get; init; } = "EUR";
-    public List<BankOperation> Operations { get; init; } = new();
+    public string SourceFile { get; set; } = string.Empty;
+    public Guid? AccountId { get; set; }
+    public string BankName { get; set; } = string.Empty;
+    public string AccountDisplayName { get; set; } = string.Empty;
+    public string AccountReference { get; set; } = string.Empty;
+    public string AccountHolder { get; set; } = string.Empty;
+    public BankAccountType AccountType { get; set; } = BankAccountType.Courant;
+    public DateTime? BalanceDate { get; set; }
+    public decimal? Balance { get; set; }
+    public string Currency { get; set; } = "EUR";
+    public List<BankOperation> Operations { get; set; } = new();
 }
 
 internal sealed class BankOperation
 {
-    public DateTime Date { get; init; }
+    public DateTime Date { get; set; }
     public string Nature { get; set; } = string.Empty;
-    public decimal Debit { get; init; }
-    public decimal Credit { get; init; }
-    public string Currency { get; init; } = "EUR";
-    public DateTime? ValueDate { get; init; }
-    public string InterbankLabel { get; init; } = string.Empty;
+    public decimal Debit { get; set; }
+    public decimal Credit { get; set; }
+    public string Currency { get; set; } = "EUR";
+    public DateTime? ValueDate { get; set; }
+    public string InterbankLabel { get; set; } = string.Empty;
     public string Details { get; set; } = string.Empty;
+    public bool IsDeferredCardSummary { get; set; }
     public decimal Amount => Credit + Debit;
 }
 
@@ -84,38 +88,60 @@ internal static class BankImportService
         if (result.Operations.Count == 0)
             throw new InvalidDataException("Aucune opération bancaire n'a été détectée dans le fichier.");
 
+        DetectDeferredCardSummaries(result);
         return result;
+    }
+
+    public static void BindAccount(BankImportResult result, BankAccountProfile account)
+    {
+        result.AccountId = account.Id;
+        result.BankName = account.BankName;
+        result.AccountDisplayName = account.AccountName;
+        result.AccountReference = account.AccountReference;
+        result.AccountHolder = account.Holder;
+        result.AccountType = account.Type;
+
+        if (account.Type == BankAccountType.CarteDifferee)
+        {
+            foreach (var operation in result.Operations)
+                operation.IsDeferredCardSummary = true;
+        }
+        else
+        {
+            DetectDeferredCardSummaries(result);
+        }
     }
 
     public static string SaveImport(BankImportResult result)
     {
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "QNB",
-            "Imports");
+        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "QNB", "Imports");
         Directory.CreateDirectory(directory);
 
-        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
         var path = Path.Combine(directory, $"import-{stamp}.json");
         var json = JsonSerializer.Serialize(result, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(path, json, Encoding.UTF8);
         return path;
     }
 
+    private static void DetectDeferredCardSummaries(BankImportResult result)
+    {
+        foreach (var operation in result.Operations)
+        {
+            var text = $"{operation.Nature} {operation.InterbankLabel} {operation.Details}".ToUpperInvariant();
+            var mentionsCard = text.Contains("CARTE") || text.Contains(" CB ") || text.StartsWith("CB ") || text.Contains("C.B.");
+            var mentionsDeferred = text.Contains("DIFFERE") || text.Contains("DIFFÉRÉ") || text.Contains("RELEVE CARTE") || text.Contains("RELEVÉ CARTE");
+            if (mentionsCard && mentionsDeferred)
+                operation.IsDeferredCardSummary = true;
+        }
+    }
+
     private static List<string> ReadAllLinesShared(string filePath)
     {
         var lines = new List<string>();
-
-        using var stream = new FileStream(
-            filePath,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.ReadWrite | FileShare.Delete);
-
+        using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-        while (reader.ReadLine() is { } line)
-            lines.Add(line);
-
+        while (reader.ReadLine() is { } line) lines.Add(line);
         return lines;
     }
 
@@ -130,30 +156,15 @@ internal static class BankImportService
             var ch = line[i];
             if (ch == '"')
             {
-                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
-                {
-                    current.Append('"');
-                    i++;
-                }
-                else
-                {
-                    inQuotes = !inQuotes;
-                }
+                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"') { current.Append('"'); i++; }
+                else inQuotes = !inQuotes;
             }
-            else if (ch == ';' && !inQuotes)
-            {
-                values.Add(current.ToString());
-                current.Clear();
-            }
-            else
-            {
-                current.Append(ch);
-            }
+            else if (ch == ';' && !inQuotes) { values.Add(current.ToString()); current.Clear(); }
+            else current.Append(ch);
         }
 
         values.Add(current.ToString());
-        if (values.Count > 0)
-            values[0] = values[0].TrimStart('\uFEFF');
+        if (values.Count > 0) values[0] = values[0].TrimStart('\uFEFF');
         return values;
     }
 
@@ -164,20 +175,14 @@ internal static class BankImportService
         column >= 0 && column < row.Count ? row[column] : string.Empty;
 
     private static DateTime? ParseDate(string text) =>
-        DateTime.TryParseExact(text.Trim(), "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var value)
-            ? value
-            : null;
+        DateTime.TryParseExact(text.Trim(), "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var value) ? value : null;
 
     private static decimal ParseAmount(string text) => ParseAmountNullable(text) ?? 0m;
 
     private static decimal? ParseAmountNullable(string text)
     {
         var normalized = text.Trim().Replace(" ", string.Empty).Replace("\u00A0", string.Empty);
-        if (string.IsNullOrWhiteSpace(normalized))
-            return null;
-
-        return decimal.TryParse(normalized, NumberStyles.Number | NumberStyles.AllowLeadingSign, CultureInfo.GetCultureInfo("fr-FR"), out var value)
-            ? value
-            : null;
+        if (string.IsNullOrWhiteSpace(normalized)) return null;
+        return decimal.TryParse(normalized, NumberStyles.Number | NumberStyles.AllowLeadingSign, CultureInfo.GetCultureInfo("fr-FR"), out var value) ? value : null;
     }
 }
