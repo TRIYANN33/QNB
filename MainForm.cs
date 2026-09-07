@@ -6,32 +6,32 @@ namespace QNB;
 public sealed class MainForm : Form
 {
     private Label _dateTimeLabel = null!;
-    private readonly Panel _contentPanel;
     private readonly System.Windows.Forms.Timer _clockTimer;
 
-    private static readonly Color Background = Color.FromArgb(244, 247, 250);
-    private static readonly Color Card = Color.White;
-    private static readonly Color Navy = Color.FromArgb(8, 55, 96);
-    private static readonly Color NavyDark = Color.FromArgb(5, 41, 75);
-    private static readonly Color NavyHover = Color.FromArgb(18, 76, 124);
-    private static readonly Color Sky = Color.FromArgb(105, 180, 232);
-    private static readonly Color SkySoft = Color.FromArgb(226, 241, 251);
-    private static readonly Color TextMain = Color.FromArgb(32, 48, 64);
-    private static readonly Color TextSoft = Color.FromArgb(105, 118, 132);
-    private static readonly Color Border = Color.FromArgb(222, 229, 235);
-    private static readonly Color SoftGreen = Color.FromArgb(231, 243, 237);
-    private static readonly Color SoftSand = Color.FromArgb(247, 240, 225);
-    private static readonly Color SoftRose = Color.FromArgb(247, 233, 236);
+    private static readonly Color Navy950 = Color.FromArgb(3, 23, 49);
+    private static readonly Color Navy900 = Color.FromArgb(4, 36, 73);
+    private static readonly Color Navy800 = Color.FromArgb(6, 52, 100);
+    private static readonly Color Navy700 = Color.FromArgb(8, 73, 137);
+    private static readonly Color Blue = Color.FromArgb(34, 149, 255);
+    private static readonly Color Cyan = Color.FromArgb(85, 216, 239);
+    private static readonly Color Teal = Color.FromArgb(58, 196, 187);
+    private static readonly Color Violet = Color.FromArgb(163, 132, 255);
+    private static readonly Color Amber = Color.FromArgb(242, 187, 72);
+    private static readonly Color Rose = Color.FromArgb(238, 118, 137);
+    private static readonly Color Surface = Color.FromArgb(8, 43, 82);
+    private static readonly Color Surface2 = Color.FromArgb(10, 55, 99);
+    private static readonly Color Line = Color.FromArgb(49, 127, 190);
+    private static readonly Color TextSoft = Color.FromArgb(183, 207, 229);
 
     public MainForm()
     {
         Text = "QNB - Tableau de bord";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(1180, 760);
-        Size = new Size(1400, 900);
+        Size = new Size(1480, 930);
         Font = new Font("Segoe UI", 10F);
-        BackColor = Background;
-        ForeColor = TextMain;
+        BackColor = Navy950;
+        ForeColor = Color.White;
         AutoScaleMode = AutoScaleMode.Dpi;
 
         var usageInfo = AppUsageInfo.LoadAndRegisterCurrentUse();
@@ -41,17 +41,15 @@ public sealed class MainForm : Form
             Dock = DockStyle.Fill,
             ColumnCount = 2,
             RowCount = 1,
-            BackColor = Background,
-            Padding = new Padding(10)
+            Padding = new Padding(10),
+            BackColor = Navy950,
+            Margin = Padding.Empty
         };
-        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 232F));
+        root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250F));
         root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
 
-        var sidebar = BuildSidebar();
-        _contentPanel = BuildDashboardContent(usageInfo);
-
-        root.Controls.Add(sidebar, 0, 0);
-        root.Controls.Add(_contentPanel, 1, 0);
+        root.Controls.Add(BuildSidebar(), 0, 0);
+        root.Controls.Add(BuildDashboard(usageInfo), 1, 0);
         Controls.Add(root);
 
         UpdateDateTime();
@@ -61,45 +59,57 @@ public sealed class MainForm : Form
         FormClosed += (_, _) => _clockTimer.Dispose();
     }
 
-    private Panel BuildSidebar()
+    private Control BuildSidebar()
     {
-        var sidebar = new Panel
+        var sidebar = new RoundedPanel
         {
             Dock = DockStyle.Fill,
-            BackColor = NavyDark,
-            Margin = new Padding(4, 4, 8, 4),
-            Padding = new Padding(14, 18, 14, 14)
+            Radius = 28,
+            BackColor = Navy900,
+            BorderColor = Color.FromArgb(31, 115, 182),
+            BorderWidth = 1,
+            Margin = new Padding(0, 0, 10, 0),
+            Padding = new Padding(14, 14, 14, 12)
         };
-        ApplyRoundedCorners(sidebar, 24);
 
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 1,
             RowCount = 3,
-            BackColor = NavyDark,
-            Margin = Padding.Empty
+            BackColor = Color.Transparent,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty
         };
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 74F));
 
-        var brand = new Panel { Dock = DockStyle.Fill, BackColor = NavyDark };
+        var brand = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+        var logo = new PictureBox
+        {
+            Image = BrandAssets.CreateHummingbirdLogo(Color.White),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent,
+            Location = new Point(5, 1),
+            Size = new Size(56, 84)
+        };
+        brand.Controls.Add(logo);
         brand.Controls.Add(new Label
         {
             Text = "QNB",
             AutoSize = true,
             ForeColor = Color.White,
             Font = new Font("Segoe UI Semibold", 25F, FontStyle.Bold),
-            Location = new Point(5, 0)
+            Location = new Point(69, 20)
         });
         brand.Controls.Add(new Label
         {
-            Text = "GESTION & ANALYSE",
+            Text = "PLUS LOIN ENSEMBLE",
             AutoSize = true,
-            ForeColor = Color.FromArgb(167, 202, 226),
-            Font = new Font("Segoe UI Semibold", 7.5F, FontStyle.Bold),
-            Location = new Point(8, 45)
+            ForeColor = TextSoft,
+            Font = new Font("Segoe UI Semibold", 7F, FontStyle.Bold),
+            Location = new Point(71, 58)
         });
 
         var menu = new FlowLayoutPanel
@@ -108,9 +118,9 @@ public sealed class MainForm : Form
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             AutoScroll = true,
-            BackColor = NavyDark,
+            BackColor = Color.Transparent,
             Margin = Padding.Empty,
-            Padding = new Padding(0, 2, 0, 0)
+            Padding = new Padding(0, 2, 0, 2)
         };
 
         var items = new (string Icon, string Text)[]
@@ -126,21 +136,28 @@ public sealed class MainForm : Form
             ("☷", "Listes"),
             ("✓", "Contrôles"),
             ("⚙", "Règles auto"),
-            ("◉", "Doublons"),
+            ("◉", "Analyser les doublons"),
+            ("↻", "Actualiser le classeur"),
+            ("↻", "Actualiser feuille"),
             ("?", "Mode emploi")
         };
 
-        foreach (var item in items)
-            menu.Controls.Add(CreateSidebarButton(item.Icon, item.Text));
+        for (var i = 0; i < items.Length; i++)
+            menu.Controls.Add(CreateSidebarButton(items[i].Icon, items[i].Text, i == 0));
 
-        var footer = new Label
+        var footer = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+        footer.Controls.Add(new Label
         {
-            Text = "QNB  •  .NET 6",
-            Dock = DockStyle.Fill,
-            ForeColor = Color.FromArgb(142, 181, 208),
-            TextAlign = ContentAlignment.MiddleLeft,
-            Font = new Font("Segoe UI", 8F),
-            Padding = new Padding(7, 0, 0, 0)
+            Text = "PERFORMANCE\nCONFIANCE\nAVENIR",
+            AutoSize = true,
+            ForeColor = Color.FromArgb(111, 176, 230),
+            Font = new Font("Segoe UI", 7.5F),
+            Location = new Point(9, 9)
+        });
+        footer.Paint += (_, e) =>
+        {
+            using var pen = new Pen(Blue, 2F);
+            e.Graphics.DrawLine(pen, 8, 2, 54, 2);
         };
 
         layout.Controls.Add(brand, 0, 0);
@@ -150,269 +167,432 @@ public sealed class MainForm : Form
         return sidebar;
     }
 
-    private Panel BuildDashboardContent(AppUsageInfo usageInfo)
+    private Control BuildDashboard(AppUsageInfo usageInfo)
     {
-        var host = new Panel
+        var host = new StadiumPanel
         {
             Dock = DockStyle.Fill,
-            BackColor = Background,
             AutoScroll = true,
-            Padding = new Padding(22, 4, 8, 4),
+            BackColor = Navy950,
+            Padding = new Padding(10, 0, 0, 0),
             Margin = Padding.Empty
         };
 
-        var layout = new TableLayoutPanel
+        var content = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 1,
-            RowCount = 5,
-            BackColor = Background,
-            Margin = Padding.Empty
+            RowCount = 6,
+            BackColor = Color.Transparent,
+            Margin = Padding.Empty,
+            Padding = new Padding(12, 4, 12, 12)
         };
 
-        var hero = new HeroPanel
+        content.Controls.Add(BuildHero(), 0, 0);
+        content.Controls.Add(BuildKpis(), 0, 1);
+        content.Controls.Add(BuildInformationPanel(usageInfo), 0, 2);
+        content.Controls.Add(BuildSectionLabel("Actions rapides"), 0, 3);
+        content.Controls.Add(BuildQuickActions(), 0, 4);
+        content.Controls.Add(BuildFooter(), 0, 5);
+
+        host.Controls.Add(content);
+        return host;
+    }
+
+    private Control BuildHero()
+    {
+        var hero = new RoundedPanel
         {
+            Height = 190,
             Dock = DockStyle.Top,
-            Height = 132,
-            Margin = new Padding(0, 0, 0, 16),
-            Padding = new Padding(24, 18, 24, 16),
-            BackColor = Card
+            Radius = 26,
+            BackColor = Navy900,
+            BorderColor = Color.FromArgb(24, 103, 170),
+            BorderWidth = 1,
+            Margin = new Padding(0, 0, 0, 12)
         };
-        ApplyRoundedCorners(hero, 24);
+        hero.Paint += PaintHero;
 
+        var logo = new PictureBox
+        {
+            Image = BrandAssets.CreateHummingbirdLogo(Color.White),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent,
+            Size = new Size(88, 132),
+            Location = new Point(52, 28)
+        };
+        hero.Controls.Add(logo);
         hero.Controls.Add(new Label
         {
             Text = "QNB",
             AutoSize = true,
-            ForeColor = Navy,
-            Font = new Font("Segoe UI Semibold", 13F, FontStyle.Bold),
-            Location = new Point(26, 18)
+            ForeColor = Color.White,
+            BackColor = Color.Transparent,
+            Font = new Font("Segoe UI Semibold", 46F, FontStyle.Bold),
+            Location = new Point(151, 38)
         });
         hero.Controls.Add(new Label
         {
-            Text = "TABLEAU DE BORD",
+            Text = "PLUS LOIN ENSEMBLE",
             AutoSize = true,
-            ForeColor = Navy,
-            Font = new Font("Segoe UI Semibold", 25F, FontStyle.Bold),
-            Location = new Point(24, 48)
+            ForeColor = Color.FromArgb(224, 238, 250),
+            BackColor = Color.Transparent,
+            Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold),
+            Location = new Point(158, 112)
         });
         hero.Controls.Add(new Label
         {
-            Text = "Vue synthétique de votre activité et de vos données",
+            Text = "VOS DONNÉES\nNOTRE EXPERTISE\nVOTRE AVENIR",
             AutoSize = true,
-            ForeColor = TextSoft,
-            Font = new Font("Segoe UI", 9.5F),
-            Location = new Point(27, 91)
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            ForeColor = Color.White,
+            BackColor = Color.Transparent,
+            Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold),
+            Location = new Point(760, 55)
         });
 
         _dateTimeLabel = new Label
         {
-            AutoSize = false,
             Size = new Size(260, 48),
             Anchor = AnchorStyles.Top | AnchorStyles.Right,
             TextAlign = ContentAlignment.MiddleRight,
-            ForeColor = Color.White,
+            ForeColor = Color.FromArgb(209, 234, 252),
             BackColor = Color.Transparent,
-            Font = new Font("Segoe UI Semibold", 10.5F, FontStyle.Bold),
-            Location = new Point(Math.Max(500, hero.Width - 290), 24)
+            Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold),
+            Location = new Point(905, 16)
         };
         hero.Controls.Add(_dateTimeLabel);
-        hero.Resize += (_, _) => _dateTimeLabel.Location = new Point(Math.Max(500, hero.ClientSize.Width - 286), 25);
 
-        var kpiGrid = new TableLayoutPanel
+        hero.Resize += (_, _) =>
+        {
+            _dateTimeLabel.Location = new Point(Math.Max(760, hero.ClientSize.Width - 282), 17);
+            foreach (Control control in hero.Controls)
+            {
+                if (control is Label label && label.Text.StartsWith("VOS DONNÉES", StringComparison.Ordinal))
+                    label.Location = new Point(Math.Max(610, hero.ClientSize.Width - 310), 74);
+            }
+        };
+
+        return hero;
+    }
+
+    private Control BuildKpis()
+    {
+        var grid = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 4,
             RowCount = 1,
-            Margin = new Padding(0, 0, 0, 14),
-            BackColor = Background
+            BackColor = Color.Transparent,
+            Margin = new Padding(0, 0, 0, 12)
         };
-        for (var i = 0; i < 4; i++) kpiGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-        kpiGrid.Controls.Add(CreateKpiCard("Documents", "0", "Importés", "⇩", SkySoft), 0, 0);
-        kpiGrid.Controls.Add(CreateKpiCard("Opérations", "0", "Enregistrées", "≡", SoftGreen), 1, 0);
-        kpiGrid.Controls.Add(CreateKpiCard("Contrôles", "0", "À vérifier", "✓", SoftSand), 2, 0);
-        kpiGrid.Controls.Add(CreateKpiCard("Doublons", "0", "Détectés", "◉", SoftRose), 3, 0);
+        for (var i = 0; i < 4; i++)
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
 
-        var information = CreateInformationPanel(usageInfo);
+        grid.Controls.Add(CreateKpiCard("Documents", "0", "Fichiers importés", "▤", Blue), 0, 0);
+        grid.Controls.Add(CreateKpiCard("Opérations", "0", "Lignes analysées", "≡", Teal), 1, 0);
+        grid.Controls.Add(CreateKpiCard("Contrôles", "0", "Anomalies détectées", "✓", Rose), 2, 0);
+        grid.Controls.Add(CreateKpiCard("Doublons", "0", "Doublons trouvés", "◉", Violet), 3, 0);
+        return grid;
+    }
 
-        var actionTitle = CreateSectionTitle("Actions rapides");
-        var actionGrid = new TableLayoutPanel
+    private Control BuildInformationPanel(AppUsageInfo usageInfo)
+    {
+        var card = new RoundedPanel
+        {
+            Height = 168,
+            Dock = DockStyle.Top,
+            Radius = 22,
+            BackColor = Color.FromArgb(7, 42, 78),
+            BorderColor = Line,
+            BorderWidth = 1,
+            Margin = new Padding(0, 0, 0, 12),
+            Padding = new Padding(22, 16, 22, 16)
+        };
+
+        card.Controls.Add(new Label
+        {
+            Text = "Informations de l'application",
+            AutoSize = true,
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI Semibold", 14F, FontStyle.Bold),
+            Location = new Point(22, 15)
+        });
+
+        var brandPanel = new Panel
+        {
+            BackColor = Color.Transparent,
+            Location = new Point(22, 48),
+            Size = new Size(300, 100)
+        };
+        brandPanel.Controls.Add(new PictureBox
+        {
+            Image = BrandAssets.CreateHummingbirdLogo(Color.White),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Transparent,
+            Location = new Point(2, 0),
+            Size = new Size(58, 90)
+        });
+        brandPanel.Controls.Add(new Label
+        {
+            Text = "QNB",
+            AutoSize = true,
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI Semibold", 30F, FontStyle.Bold),
+            Location = new Point(67, 16)
+        });
+        brandPanel.Controls.Add(new Label
+        {
+            Text = "PLUS LOIN ENSEMBLE",
+            AutoSize = true,
+            ForeColor = TextSoft,
+            Font = new Font("Segoe UI Semibold", 7.5F, FontStyle.Bold),
+            Location = new Point(70, 63)
+        });
+        card.Controls.Add(brandPanel);
+
+        var details = new TableLayoutPanel
+        {
+            ColumnCount = 2,
+            RowCount = 4,
+            BackColor = Color.Transparent,
+            Location = new Point(350, 48),
+            Size = new Size(580, 104)
+        };
+        details.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190F));
+        details.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        AddDetailRow(details, 0, "Date de création", FormatDateTime(usageInfo.CreationDate));
+        AddDetailRow(details, 1, "Dernière utilisation", usageInfo.PreviousUseDate.HasValue ? FormatDateTime(usageInfo.PreviousUseDate.Value) : "Première utilisation");
+        AddDetailRow(details, 2, "Dernière modification", FormatDateTime(GetApplicationLastModificationDate()));
+        AddDetailRow(details, 3, "Version", "1.0.0  •  .NET 6");
+        card.Controls.Add(details);
+
+        var calendar = new RoundedPanel
+        {
+            Size = new Size(185, 108),
+            Radius = 18,
+            BackColor = Color.FromArgb(9, 57, 104),
+            BorderColor = Color.FromArgb(30, 131, 211),
+            BorderWidth = 1,
+            Anchor = AnchorStyles.Top | AnchorStyles.Right,
+            Location = new Point(980, 42)
+        };
+        calendar.Controls.Add(new Label
+        {
+            Name = "calendarDayName",
+            Text = DateTime.Now.ToString("dddd", CultureInfo.GetCultureInfo("fr-FR")),
+            Dock = DockStyle.Top,
+            Height = 27,
+            TextAlign = ContentAlignment.BottomCenter,
+            ForeColor = Blue,
+            Font = new Font("Segoe UI", 9F)
+        });
+        calendar.Controls.Add(new Label
+        {
+            Name = "calendarDay",
+            Text = DateTime.Now.Day.ToString("00"),
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            ForeColor = Blue,
+            Font = new Font("Segoe UI Semibold", 24F, FontStyle.Bold)
+        });
+        calendar.Controls.Add(new Label
+        {
+            Name = "calendarMonth",
+            Text = DateTime.Now.ToString("MMMM yyyy", CultureInfo.GetCultureInfo("fr-FR")).ToUpperInvariant(),
+            Dock = DockStyle.Bottom,
+            Height = 28,
+            TextAlign = ContentAlignment.TopCenter,
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI Semibold", 8F, FontStyle.Bold)
+        });
+        card.Controls.Add(calendar);
+
+        card.Resize += (_, _) =>
+        {
+            calendar.Location = new Point(Math.Max(955, card.ClientSize.Width - 205), 42);
+            details.Width = Math.Max(490, calendar.Left - details.Left - 22);
+        };
+
+        return card;
+    }
+
+    private static void AddDetailRow(TableLayoutPanel grid, int row, string caption, string value)
+    {
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 25F));
+        grid.Controls.Add(new Label
+        {
+            Text = caption,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = TextSoft,
+            Font = new Font("Segoe UI", 8.5F)
+        }, 0, row);
+        grid.Controls.Add(new Label
+        {
+            Text = ":  " + value,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI Semibold", 8.7F, FontStyle.Bold)
+        }, 1, row);
+    }
+
+    private Control BuildQuickActions()
+    {
+        var grid = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
             AutoSize = true,
             ColumnCount = 4,
             RowCount = 2,
-            Margin = Padding.Empty,
-            BackColor = Background
+            BackColor = Color.Transparent,
+            Margin = Padding.Empty
         };
-        for (var i = 0; i < 4; i++) actionGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-        actionGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 62F));
-        actionGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 62F));
+        for (var i = 0; i < 4; i++)
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
+        grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
 
         var actions = new (string Icon, string Text, Color Color)[]
         {
-            ("▣", "Patrimoine", SkySoft),
-            ("⇩", "Importer document", SkySoft),
-            ("≡", "Opérations", SoftGreen),
-            ("◆", "Classification", SoftSand),
-            ("✓", "Contrôles", SoftGreen),
-            ("◉", "Doublons", SoftRose),
-            ("↻", "Actualiser classeur", SkySoft),
-            ("↻", "Actualiser feuille", SoftGreen)
+            ("⇩", "Importer PDF / Excel", Blue),
+            ("✓", "Lancer les contrôles", Navy700),
+            ("▥", "Voir les résultats", Teal),
+            ("▣", "Accéder au patrimoine", Color.FromArgb(129, 91, 27)),
+            ("≡", "Opérations", Navy700),
+            ("◆", "Classification", Violet),
+            ("◉", "Analyser les doublons", Rose),
+            ("↻", "Actualiser le classeur", Navy700)
         };
+
         for (var i = 0; i < actions.Length; i++)
-            actionGrid.Controls.Add(CreateActionButton(actions[i].Icon, actions[i].Text, actions[i].Color), i % 4, i / 4);
-
-        layout.Controls.Add(hero, 0, 0);
-        layout.Controls.Add(kpiGrid, 0, 1);
-        layout.Controls.Add(information, 0, 2);
-        layout.Controls.Add(actionTitle, 0, 3);
-        layout.Controls.Add(actionGrid, 0, 4);
-        host.Controls.Add(layout);
-        return host;
+            grid.Controls.Add(CreateActionButton(actions[i].Icon, actions[i].Text, actions[i].Color), i % 4, i / 4);
+        return grid;
     }
 
-    private Panel CreateInformationPanel(AppUsageInfo usageInfo)
+    private static Control BuildSectionLabel(string text)
     {
-        var card = new Panel
+        return new Label
         {
-            Dock = DockStyle.Top,
-            Height = 116,
-            BackColor = Card,
-            Margin = new Padding(0, 0, 0, 16),
-            Padding = new Padding(20, 14, 20, 14)
+            Text = text,
+            AutoSize = true,
+            ForeColor = Color.White,
+            BackColor = Color.Transparent,
+            Font = new Font("Segoe UI Semibold", 13F, FontStyle.Bold),
+            Margin = new Padding(4, 5, 0, 6)
         };
-        ApplyRoundedCorners(card, 20);
-
-        var title = new Label
-        {
-            Text = "Informations de l'application",
-            Dock = DockStyle.Top,
-            Height = 27,
-            ForeColor = Navy,
-            Font = new Font("Segoe UI Semibold", 12F, FontStyle.Bold)
-        };
-        card.Controls.Add(title);
-
-        var grid = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 3,
-            RowCount = 1,
-            BackColor = Card,
-            Padding = new Padding(0, 5, 0, 0)
-        };
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
-        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.334F));
-
-        grid.Controls.Add(CreateInfoBlock("DATE DE CRÉATION", FormatDateTime(usageInfo.CreationDate)), 0, 0);
-        grid.Controls.Add(CreateInfoBlock("DERNIÈRE UTILISATION",
-            usageInfo.PreviousUseDate.HasValue ? FormatDateTime(usageInfo.PreviousUseDate.Value) : "Première utilisation"), 1, 0);
-        grid.Controls.Add(CreateInfoBlock("DERNIÈRE MODIFICATION", FormatDateTime(GetApplicationLastModificationDate())), 2, 0);
-        card.Controls.Add(grid);
-        grid.BringToFront();
-        return card;
     }
 
-    private static Panel CreateInfoBlock(string title, string value)
+    private static Control BuildFooter()
     {
-        var panel = new Panel { Dock = DockStyle.Fill, BackColor = Card, Margin = new Padding(0, 0, 12, 0) };
-        panel.Controls.Add(new Label
+        return new Label
         {
-            Text = value,
-            Dock = DockStyle.Fill,
-            ForeColor = TextMain,
-            Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold),
-            TextAlign = ContentAlignment.MiddleLeft
-        });
-        panel.Controls.Add(new Label
-        {
-            Text = title,
+            Text = "QNB   |   Système de contrôle et d'analyse documentaire",
             Dock = DockStyle.Top,
-            Height = 21,
-            ForeColor = TextSoft,
-            Font = new Font("Segoe UI Semibold", 7.5F, FontStyle.Bold)
-        });
-        return panel;
+            Height = 42,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = Color.FromArgb(139, 176, 207),
+            BackColor = Color.Transparent,
+            Font = new Font("Segoe UI", 8F),
+            Margin = new Padding(6, 8, 0, 0)
+        };
     }
 
-    private static Button CreateSidebarButton(string icon, string text)
+    private static Button CreateSidebarButton(string icon, string text, bool selected)
     {
         var button = new Button
         {
-            Text = $"  {icon}   {text}",
-            Width = 198,
+            Text = $"  {icon}    {text}",
+            Width = 210,
             Height = 34,
             Margin = new Padding(0, 1, 0, 1),
-            Padding = new Padding(3, 0, 0, 0),
+            Padding = new Padding(2, 0, 0, 0),
             FlatStyle = FlatStyle.Flat,
-            BackColor = NavyDark,
-            ForeColor = Color.FromArgb(232, 241, 247),
-            Font = new Font("Segoe UI Semibold", 8.8F),
+            BackColor = selected ? Color.FromArgb(23, 94, 164) : Navy900,
+            ForeColor = Color.FromArgb(229, 241, 250),
+            Font = new Font("Segoe UI Semibold", 8.5F),
             TextAlign = ContentAlignment.MiddleLeft,
             Cursor = Cursors.Hand,
             UseVisualStyleBackColor = false
         };
         button.FlatAppearance.BorderSize = 0;
-        button.FlatAppearance.MouseOverBackColor = NavyHover;
-        button.FlatAppearance.MouseDownBackColor = Sky;
-        ApplyRoundedCorners(button, 12);
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(18, 82, 146);
+        button.FlatAppearance.MouseDownBackColor = Blue;
+        SetRoundedRegion(button, 12);
+        button.Resize += (_, _) => SetRoundedRegion(button, 12);
         button.Click += (_, _) => MessageBox.Show($"Module « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         return button;
     }
 
-    private static Panel CreateKpiCard(string title, string value, string subtitle, string icon, Color accent)
+    private static Control CreateKpiCard(string title, string value, string subtitle, string icon, Color accent)
     {
-        var card = new Panel
+        var card = new RoundedPanel
         {
-            Height = 96,
             Dock = DockStyle.Fill,
-            BackColor = Card,
-            Margin = new Padding(4),
-            Padding = new Padding(14)
+            Height = 112,
+            Radius = 20,
+            BackColor = Surface,
+            BorderColor = Color.FromArgb(31, 113, 180),
+            BorderWidth = 1,
+            Margin = new Padding(5),
+            Padding = new Padding(15)
         };
-        ApplyRoundedCorners(card, 18);
 
-        var iconBox = new Label
+        var iconBox = new RoundedPanel
+        {
+            Radius = 14,
+            BackColor = Color.FromArgb(Math.Max(0, accent.R - 35), Math.Max(0, accent.G - 35), Math.Max(0, accent.B - 35)),
+            BorderColor = accent,
+            BorderWidth = 1,
+            Size = new Size(48, 48),
+            Location = new Point(15, 14)
+        };
+        iconBox.Controls.Add(new Label
         {
             Text = icon,
-            BackColor = accent,
-            ForeColor = Navy,
-            Font = new Font("Segoe UI Symbol", 15F, FontStyle.Bold),
+            Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
-            Size = new Size(40, 40),
-            Location = new Point(14, 14)
-        };
-        ApplyRoundedCorners(iconBox, 12);
-
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI Symbol", 17F, FontStyle.Bold)
+        });
         card.Controls.Add(iconBox);
         card.Controls.Add(new Label
         {
             Text = title,
-            ForeColor = TextSoft,
-            Font = new Font("Segoe UI", 8.5F),
             AutoSize = true,
-            Location = new Point(66, 13)
+            ForeColor = TextSoft,
+            Font = new Font("Segoe UI", 9F),
+            Location = new Point(77, 15)
         });
         card.Controls.Add(new Label
         {
             Text = value,
-            ForeColor = Navy,
-            Font = new Font("Segoe UI Semibold", 20F, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(64, 28)
+            ForeColor = Color.White,
+            Font = new Font("Segoe UI Semibold", 22F, FontStyle.Bold),
+            Location = new Point(75, 32)
         });
         card.Controls.Add(new Label
         {
             Text = subtitle,
+            AutoSize = true,
             ForeColor = TextSoft,
             Font = new Font("Segoe UI", 8F),
-            AutoSize = true,
-            Location = new Point(15, 68)
+            Location = new Point(17, 78)
         });
+
+        var bar = new RoundedPanel
+        {
+            Radius = 3,
+            BackColor = accent,
+            Size = new Size(90, 5),
+            Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
+            Location = new Point(17, 96)
+        };
+        card.Controls.Add(bar);
         return card;
     }
 
@@ -420,12 +600,12 @@ public sealed class MainForm : Form
     {
         var button = new Button
         {
-            Text = $" {icon}   {text}",
+            Text = $"  {icon}    {text}",
             Dock = DockStyle.Fill,
-            Margin = new Padding(4),
+            Margin = new Padding(5),
             Padding = new Padding(10, 0, 8, 0),
             BackColor = background,
-            ForeColor = Navy,
+            ForeColor = Color.White,
             FlatStyle = FlatStyle.Flat,
             Font = new Font("Segoe UI Semibold", 9.2F, FontStyle.Bold),
             TextAlign = ContentAlignment.MiddleLeft,
@@ -433,32 +613,58 @@ public sealed class MainForm : Form
             UseVisualStyleBackColor = false
         };
         button.FlatAppearance.BorderSize = 0;
-        button.FlatAppearance.MouseOverBackColor = Lighten(background, 8);
-        button.FlatAppearance.MouseDownBackColor = Darken(background, 8);
-        ApplyRoundedCorners(button, 14);
+        button.FlatAppearance.MouseOverBackColor = Lighten(background, 14);
+        button.FlatAppearance.MouseDownBackColor = Darken(background, 14);
+        SetRoundedRegion(button, 14);
+        button.Resize += (_, _) => SetRoundedRegion(button, 14);
         button.Click += (_, _) => MessageBox.Show($"Action « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         return button;
     }
 
-    private static Label CreateSectionTitle(string text) => new()
+    private static void PaintHero(object? sender, PaintEventArgs e)
     {
-        Text = text,
-        AutoSize = true,
-        ForeColor = Navy,
-        Font = new Font("Segoe UI Semibold", 13F, FontStyle.Bold),
-        Margin = new Padding(4, 0, 0, 7)
-    };
+        if (sender is not Control control) return;
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+
+        var rect = control.ClientRectangle;
+        using var gradient = new LinearGradientBrush(rect, Color.FromArgb(5, 39, 78), Color.FromArgb(8, 92, 166), LinearGradientMode.Horizontal);
+        e.Graphics.FillRectangle(gradient, rect);
+
+        using var glow = new SolidBrush(Color.FromArgb(50, 92, 203, 255));
+        e.Graphics.FillEllipse(glow, rect.Width - 360, -130, 420, 420);
+        e.Graphics.FillEllipse(glow, rect.Width / 2 - 120, 70, 230, 230);
+
+        using var beamPen = new Pen(Color.FromArgb(65, 154, 217, 255), 1.3F);
+        var lightPoints = new[]
+        {
+            new Point(rect.Width / 2 - 210, 9), new Point(rect.Width / 2 + 180, 7),
+            new Point(rect.Width - 115, 18), new Point(rect.Width - 260, 42)
+        };
+        foreach (var p in lightPoints)
+        {
+            for (var i = -2; i <= 2; i++)
+                e.Graphics.DrawLine(beamPen, p.X, p.Y, p.X + i * 80, rect.Height);
+            using var lamp = new SolidBrush(Color.FromArgb(235, 236, 249, 255));
+            for (var x = -1; x <= 1; x++)
+                for (var y = -1; y <= 1; y++)
+                    e.Graphics.FillEllipse(lamp, p.X + x * 7 - 3, p.Y + y * 7 - 3, 6, 6);
+        }
+
+        using var horizon = new Pen(Color.FromArgb(85, 136, 202, 255), 1F);
+        e.Graphics.DrawArc(horizon, 260, 78, Math.Max(500, rect.Width - 360), 170, 190, 160);
+        e.Graphics.DrawArc(horizon, 315, 93, Math.Max(440, rect.Width - 470), 145, 190, 160);
+    }
 
     private void UpdateDateTime()
     {
         var culture = CultureInfo.GetCultureInfo("fr-FR");
-        _dateTimeLabel.Text = DateTime.Now.ToString("dddd d MMMM yyyy\nHH:mm", culture);
+        _dateTimeLabel.Text = DateTime.Now.ToString("dddd d MMMM yyyy\nHH:mm:ss", culture);
     }
 
     private static string FormatDateTime(DateTime dateTime)
     {
         var culture = CultureInfo.GetCultureInfo("fr-FR");
-        return dateTime.ToString("d MMMM yyyy · HH:mm", culture);
+        return dateTime.ToString("dd/MM/yyyy  HH:mm", culture);
     }
 
     private static DateTime GetApplicationLastModificationDate()
@@ -467,52 +673,68 @@ public sealed class MainForm : Form
         catch { return DateTime.Now; }
     }
 
-    private static void ApplyRoundedCorners(Control control, int radius)
-    {
-        void UpdateRegion()
-        {
-            if (control.Width <= 0 || control.Height <= 0) return;
-            using var path = CreateRoundedPath(new Rectangle(0, 0, control.Width, control.Height), radius);
-            control.Region?.Dispose();
-            control.Region = new Region(path);
-        }
-
-        control.Resize += (_, _) => UpdateRegion();
-        control.HandleCreated += (_, _) => UpdateRegion();
-        UpdateRegion();
-    }
-
-    private static GraphicsPath CreateRoundedPath(Rectangle bounds, int radius)
-    {
-        var diameter = radius * 2;
-        var path = new GraphicsPath();
-        if (diameter <= 0)
-        {
-            path.AddRectangle(bounds);
-            return path;
-        }
-
-        var arc = new Rectangle(bounds.X, bounds.Y, diameter, diameter);
-        path.AddArc(arc, 180, 90);
-        arc.X = bounds.Right - diameter;
-        path.AddArc(arc, 270, 90);
-        arc.Y = bounds.Bottom - diameter;
-        path.AddArc(arc, 0, 90);
-        arc.X = bounds.Left;
-        path.AddArc(arc, 90, 90);
-        path.CloseFigure();
-        return path;
-    }
-
     private static Color Lighten(Color color, int amount) => Color.FromArgb(
         Math.Min(255, color.R + amount), Math.Min(255, color.G + amount), Math.Min(255, color.B + amount));
 
     private static Color Darken(Color color, int amount) => Color.FromArgb(
         Math.Max(0, color.R - amount), Math.Max(0, color.G - amount), Math.Max(0, color.B - amount));
 
-    private sealed class HeroPanel : Panel
+    private static void SetRoundedRegion(Control control, int radius)
     {
-        public HeroPanel()
+        if (control.Width <= 0 || control.Height <= 0) return;
+        using var path = CreateRoundedPath(new Rectangle(0, 0, control.Width, control.Height), radius);
+        control.Region?.Dispose();
+        control.Region = new Region(path);
+    }
+
+    private static GraphicsPath CreateRoundedPath(Rectangle rectangle, int radius)
+    {
+        var path = new GraphicsPath();
+        var diameter = Math.Max(2, radius * 2);
+        var arc = new Rectangle(rectangle.X, rectangle.Y, diameter, diameter);
+        path.AddArc(arc, 180, 90);
+        arc.X = rectangle.Right - diameter;
+        path.AddArc(arc, 270, 90);
+        arc.Y = rectangle.Bottom - diameter;
+        path.AddArc(arc, 0, 90);
+        arc.X = rectangle.Left;
+        path.AddArc(arc, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+
+    private sealed class RoundedPanel : Panel
+    {
+        public int Radius { get; set; } = 18;
+        public Color BorderColor { get; set; } = Color.Transparent;
+        public int BorderWidth { get; set; }
+
+        public RoundedPanel()
+        {
+            DoubleBuffered = true;
+            ResizeRedraw = true;
+        }
+
+        protected override void OnResize(EventArgs eventargs)
+        {
+            base.OnResize(eventargs);
+            SetRoundedRegion(this, Radius);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            base.OnPaint(e);
+            if (BorderWidth <= 0 || BorderColor == Color.Transparent) return;
+            using var path = CreateRoundedPath(new Rectangle(1, 1, Width - 3, Height - 3), Math.Max(2, Radius - 1));
+            using var pen = new Pen(BorderColor, BorderWidth);
+            e.Graphics.DrawPath(pen, path);
+        }
+    }
+
+    private sealed class StadiumPanel : Panel
+    {
+        public StadiumPanel()
         {
             DoubleBuffered = true;
             ResizeRedraw = true;
@@ -520,32 +742,22 @@ public sealed class MainForm : Form
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
+            var rect = ClientRectangle;
+            if (rect.Width <= 0 || rect.Height <= 0) return;
+            using var gradient = new LinearGradientBrush(rect, Navy950, Color.FromArgb(4, 52, 101), LinearGradientMode.Vertical);
+            e.Graphics.FillRectangle(gradient, rect);
+
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using var whiteBrush = new SolidBrush(Color.White);
-            e.Graphics.FillRectangle(whiteBrush, ClientRectangle);
+            using var glow = new SolidBrush(Color.FromArgb(22, 58, 163, 235));
+            e.Graphics.FillEllipse(glow, rect.Width - 470, -120, 520, 520);
+            e.Graphics.FillEllipse(glow, -210, rect.Height / 2, 470, 470);
 
-            var blueArea = new Point[]
+            using var pen = new Pen(Color.FromArgb(28, 120, 190, 245), 1F);
+            for (var i = 0; i < 9; i++)
             {
-                new(Math.Max(520, Width * 55 / 100), 0),
-                new(Width, 0),
-                new(Width, Height),
-                new(Math.Max(650, Width * 64 / 100), Height)
-            };
-            using var navyBrush = new LinearGradientBrush(
-                new Rectangle(Math.Max(1, Width / 2), 0, Math.Max(1, Width / 2), Math.Max(1, Height)),
-                Sky, Navy, LinearGradientMode.Horizontal);
-            e.Graphics.FillPolygon(navyBrush, blueArea);
-
-            using var translucent = new SolidBrush(Color.FromArgb(45, Color.White));
-            e.Graphics.FillPolygon(translucent, new[]
-            {
-                new Point(Math.Max(600, Width * 62 / 100), 0),
-                new Point(Math.Max(690, Width * 71 / 100), Height / 2),
-                new Point(Math.Max(610, Width * 63 / 100), Height),
-                new Point(Math.Max(520, Width * 55 / 100), Height / 2)
-            });
-
-            base.OnPaint(e);
+                var x = 70 + i * Math.Max(80, rect.Width / 10);
+                e.Graphics.DrawLine(pen, x, 0, rect.Width / 2, rect.Height);
+            }
         }
     }
 }
