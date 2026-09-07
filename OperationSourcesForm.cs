@@ -46,7 +46,7 @@ internal sealed class OperationSourcesForm : Form
         var footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 62, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(12), BackColor = Color.FromArgb(4, 36, 73) };
         var close = MakeButton("Fermer", Color.FromArgb(51, 73, 99), 110);
         close.DialogResult = DialogResult.Cancel;
-        var delete = MakeButton("Supprimer", Color.FromArgb(166, 61, 76), 120);
+        var delete = MakeButton("Supprimer + données", Color.FromArgb(166, 61, 76), 165);
         var edit = MakeButton("Modifier", Color.FromArgb(8, 73, 137), 120);
         var add = MakeButton("Nouvelle source", Color.FromArgb(34, 149, 255), 145);
         delete.Click += (_, _) => DeleteSelected();
@@ -88,6 +88,22 @@ internal sealed class OperationSourcesForm : Form
     {
         using var form = new SourceEditorForm(existing);
         if (form.ShowDialog(this) != DialogResult.OK || form.Account is null) return;
+
+        var duplicate = SourceDataService.FindDuplicateSource(
+            form.Account.BankName,
+            form.Account.AccountName,
+            form.Account.AccountReference,
+            existing?.Id);
+        if (duplicate is not null)
+        {
+            MessageBox.Show(
+                $"La source « {duplicate.DisplayName} » existe déjà.\n\nAucune nouvelle source n'a été créée.",
+                "QNB - Source déjà existante",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            return;
+        }
+
         BankingRepository.SaveAccount(form.Account);
         Reload();
     }
@@ -96,16 +112,16 @@ internal sealed class OperationSourcesForm : Form
     {
         var account = SelectedAccount();
         if (account is null) return;
-        var imports = BankingRepository.LoadImports().Count(x => x.AccountId == account.Id);
-        if (imports > 0)
-        {
-            MessageBox.Show($"Cette source est liée à {imports} import(s). Elle ne peut pas être supprimée afin de préserver l'historique des opérations.", "QNB - Source utilisée", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+        var usage = SourceDataService.GetUsage(account.Id);
+        var message = usage.Imports > 0 || usage.Operations > 0
+            ? $"Supprimer définitivement la source « {account.DisplayName} » ?\n\nCette action supprimera aussi :\n• {usage.Imports} import(s)\n• {usage.Operations} opération(s)\n\nCette suppression est irréversible."
+            : $"Supprimer définitivement la source « {account.DisplayName} » ?";
+
+        if (MessageBox.Show(message, "QNB - Suppression source et données", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
             return;
-        }
-        if (MessageBox.Show($"Supprimer la source « {account.DisplayName} » ?", "QNB - Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        var configuration = BankingRepository.LoadConfiguration();
-        configuration.Accounts.RemoveAll(x => x.Id == account.Id);
-        BankingRepository.SaveConfiguration(configuration);
+
+        SourceDataService.DeleteSourceAndData(account.Id);
         Reload();
     }
 
