@@ -8,6 +8,7 @@ internal sealed class BankAccountSelectionForm : Form
     private readonly TextBox _accountReference;
     private readonly TextBox _holder;
     private readonly ComboBox _accountType;
+    private readonly DateTimePicker _sourceDate;
 
     public BankAccountProfile? SelectedAccount { get; private set; }
 
@@ -15,8 +16,8 @@ internal sealed class BankAccountSelectionForm : Form
     {
         Text = "QNB - Banque et compte";
         StartPosition = FormStartPosition.CenterParent;
-        Size = new Size(620, 500);
-        MinimumSize = new Size(620, 500);
+        Size = new Size(620, 550);
+        MinimumSize = new Size(620, 550);
         BackColor = Color.FromArgb(3, 23, 49);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9.5F);
@@ -28,16 +29,16 @@ internal sealed class BankAccountSelectionForm : Form
             Dock = DockStyle.Fill,
             Padding = new Padding(24),
             ColumnCount = 2,
-            RowCount = 8,
+            RowCount = 9,
             BackColor = BackColor
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        for (var i = 0; i < 7; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
+        for (var i = 0; i < 8; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
         _existingAccounts = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-        _existingAccounts.Items.Add("Créer un nouveau compte");
+        _existingAccounts.Items.Add("Créer une nouvelle source");
         foreach (var account in configuration.Accounts) _existingAccounts.Items.Add(account);
         _existingAccounts.DisplayMember = nameof(BankAccountProfile.DisplayName);
         _existingAccounts.SelectedIndex = 0;
@@ -50,23 +51,31 @@ internal sealed class BankAccountSelectionForm : Form
         _accountType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
         _accountType.Items.AddRange(new object[] { "Compte courant", "Épargne", "Carte différée", "Autre" });
         _accountType.SelectedIndex = 0;
+        _sourceDate = new DateTimePicker
+        {
+            Dock = DockStyle.Fill,
+            Format = DateTimePickerFormat.Custom,
+            CustomFormat = "dd/MM/yyyy",
+            Value = (detected.BalanceDate ?? DateTime.Today).Date
+        };
 
-        AddRow(layout, 0, "Compte existant", _existingAccounts);
-        AddRow(layout, 1, "Banque", _bankName);
-        AddRow(layout, 2, "Nom du compte", _accountName);
-        AddRow(layout, 3, "Référence / IBAN", _accountReference);
-        AddRow(layout, 4, "Titulaire", _holder);
-        AddRow(layout, 5, "Type de compte", _accountType);
+        AddRow(layout, 0, "Source existante", _existingAccounts);
+        AddRow(layout, 1, "Date de la source", _sourceDate);
+        AddRow(layout, 2, "Banque", _bankName);
+        AddRow(layout, 3, "Nom du compte", _accountName);
+        AddRow(layout, 4, "Référence / IBAN", _accountReference);
+        AddRow(layout, 5, "Titulaire", _holder);
+        AddRow(layout, 6, "Type de compte", _accountType);
 
         var note = new Label
         {
-            Text = "Si la source existe déjà, sélectionnez-la dans la liste. Une nouvelle source identique annule l'importation afin d'éviter les doublons de source.",
+            Text = "La date de la source permet de distinguer deux relevés du même compte. Si banque, compte et date sont identiques, l'importation est annulée.",
             Dock = DockStyle.Fill,
             ForeColor = Color.FromArgb(183, 207, 229),
             AutoSize = false,
             TextAlign = ContentAlignment.MiddleLeft
         };
-        layout.Controls.Add(note, 0, 6);
+        layout.Controls.Add(note, 0, 7);
         layout.SetColumnSpan(note, 2);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 12, 0, 0) };
@@ -76,7 +85,7 @@ internal sealed class BankAccountSelectionForm : Form
         cancel.DialogResult = DialogResult.Cancel;
         buttons.Controls.Add(ok);
         buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons, 0, 7);
+        layout.Controls.Add(buttons, 0, 8);
         layout.SetColumnSpan(buttons, 2);
 
         AcceptButton = ok;
@@ -87,6 +96,7 @@ internal sealed class BankAccountSelectionForm : Form
     private void LoadSelectedExisting()
     {
         if (_existingAccounts.SelectedItem is not BankAccountProfile account) return;
+        _sourceDate.Value = (account.SourceDate ?? DateTime.Today).Date;
         _bankName.Text = account.BankName;
         _accountName.Text = account.AccountName;
         _accountReference.Text = account.AccountReference;
@@ -114,12 +124,13 @@ internal sealed class BankAccountSelectionForm : Form
             var duplicate = SourceDataService.FindDuplicateSource(
                 _bankName.Text,
                 _accountName.Text,
-                _accountReference.Text);
+                _accountReference.Text,
+                _sourceDate.Value.Date);
 
             if (duplicate is not null)
             {
                 MessageBox.Show(
-                    $"La source « {duplicate.DisplayName} » existe déjà et n'a pas été supprimée.\n\nL'importation est annulée. Relancez l'importation puis sélectionnez cette source existante.",
+                    $"La source « {duplicate.DisplayName} » existe déjà pour le {_sourceDate.Value:dd/MM/yyyy}.\n\nL'importation est annulée. Sélectionnez la source existante ou utilisez une autre date de source.",
                     "QNB - Source déjà existante",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
@@ -131,6 +142,7 @@ internal sealed class BankAccountSelectionForm : Form
         }
 
         var account = existing ?? new BankAccountProfile();
+        account.SourceDate = _sourceDate.Value.Date;
         account.BankName = _bankName.Text.Trim();
         account.AccountName = _accountName.Text.Trim();
         account.AccountReference = _accountReference.Text.Trim();
