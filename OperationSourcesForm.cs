@@ -10,16 +10,16 @@ internal sealed class OperationSourcesForm : Form
     {
         Text = "QNB - Sources des opérations";
         StartPosition = FormStartPosition.CenterParent;
-        Size = new Size(1050, 650);
-        MinimumSize = new Size(850, 520);
+        Size = new Size(1150, 650);
+        MinimumSize = new Size(900, 520);
         BackColor = Color.FromArgb(3, 23, 49);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9.5F);
 
         var header = new Panel { Dock = DockStyle.Top, Height = 88, BackColor = Color.FromArgb(4, 36, 73), Padding = new Padding(20, 12, 20, 8) };
         header.Controls.Add(new Label { Text = "Sources des opérations", AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 17F, FontStyle.Bold), Location = new Point(20, 12) });
-        header.Controls.Add(new Label { Text = "Gérez les banques et comptes utilisés lors des importations.", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Location = new Point(22, 49) });
-        _summary = new Label { AutoSize = true, ForeColor = Color.FromArgb(58, 196, 187), Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold), Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(820, 31) };
+        header.Controls.Add(new Label { Text = "Gérez les sources bancaires et leur date de relevé.", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Location = new Point(22, 49) });
+        _summary = new Label { AutoSize = true, ForeColor = Color.FromArgb(58, 196, 187), Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold), Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(910, 31) };
         header.Controls.Add(_summary);
 
         _grid = new DataGridView
@@ -36,11 +36,12 @@ internal sealed class OperationSourcesForm : Form
             RowHeadersVisible = false,
             AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells
         };
-        AddColumn("Banque", 180);
-        AddColumn("Nom du compte", 190);
-        AddColumn("Référence / IBAN", 220);
-        AddColumn("Titulaire", 190);
-        AddColumn("Type", 130);
+        AddColumn("Date source", 105);
+        AddColumn("Banque", 170);
+        AddColumn("Nom du compte", 180);
+        AddColumn("Référence / IBAN", 210);
+        AddColumn("Titulaire", 180);
+        AddColumn("Type", 125);
         _grid.CellDoubleClick += (_, _) => EditSelected();
 
         var footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 62, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(12), BackColor = Color.FromArgb(4, 36, 73) };
@@ -67,7 +68,7 @@ internal sealed class OperationSourcesForm : Form
         _accounts = BankingRepository.LoadConfiguration().Accounts;
         _grid.Rows.Clear();
         foreach (var account in _accounts)
-            _grid.Rows.Add(account.BankName, account.AccountName, account.AccountReference, account.Holder, TypeText(account.Type));
+            _grid.Rows.Add(account.SourceDate?.ToString("dd/MM/yyyy") ?? "", account.BankName, account.AccountName, account.AccountReference, account.Holder, TypeText(account.Type));
         _summary.Text = $"{_accounts.Count} source(s)";
     }
 
@@ -93,11 +94,12 @@ internal sealed class OperationSourcesForm : Form
             form.Account.BankName,
             form.Account.AccountName,
             form.Account.AccountReference,
+            form.Account.SourceDate,
             existing?.Id);
         if (duplicate is not null)
         {
             MessageBox.Show(
-                $"La source « {duplicate.DisplayName} » existe déjà.\n\nAucune nouvelle source n'a été créée.",
+                $"La source « {duplicate.DisplayName} » existe déjà pour cette date.\n\nAucune nouvelle source n'a été créée.",
                 "QNB - Source déjà existante",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
@@ -142,6 +144,7 @@ internal sealed class OperationSourcesForm : Form
 
 internal sealed class SourceEditorForm : Form
 {
+    private readonly DateTimePicker _sourceDate = new();
     private readonly TextBox _bank = new();
     private readonly TextBox _name = new();
     private readonly TextBox _reference = new();
@@ -156,18 +159,21 @@ internal sealed class SourceEditorForm : Form
         _id = existing?.Id ?? Guid.NewGuid();
         Text = existing is null ? "QNB - Nouvelle source" : "QNB - Modifier la source";
         StartPosition = FormStartPosition.CenterParent;
-        Size = new Size(600, 430);
-        MinimumSize = new Size(600, 430);
+        Size = new Size(600, 480);
+        MinimumSize = new Size(600, 480);
         BackColor = Color.FromArgb(3, 23, 49);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9.5F);
 
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 2, RowCount = 6, BackColor = BackColor };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24), ColumnCount = 2, RowCount = 7, BackColor = BackColor };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        for (var i = 0; i < 5; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+        for (var i = 0; i < 6; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
+        _sourceDate.Format = DateTimePickerFormat.Custom;
+        _sourceDate.CustomFormat = "dd/MM/yyyy";
+        _sourceDate.Value = (existing?.SourceDate ?? DateTime.Today).Date;
         _bank.Text = existing?.BankName ?? string.Empty;
         _name.Text = existing?.AccountName ?? string.Empty;
         _reference.Text = existing?.AccountReference ?? string.Empty;
@@ -176,18 +182,19 @@ internal sealed class SourceEditorForm : Form
         _type.Items.AddRange(new object[] { "Compte courant", "Épargne", "Carte différée", "Autre" });
         _type.SelectedIndex = existing?.Type switch { BankAccountType.Epargne => 1, BankAccountType.CarteDifferee => 2, BankAccountType.Autre => 3, _ => 0 };
 
-        AddRow(layout, 0, "Banque", _bank);
-        AddRow(layout, 1, "Nom du compte", _name);
-        AddRow(layout, 2, "Référence / IBAN", _reference);
-        AddRow(layout, 3, "Titulaire", _holder);
-        AddRow(layout, 4, "Type de compte", _type);
+        AddRow(layout, 0, "Date de la source", _sourceDate);
+        AddRow(layout, 1, "Banque", _bank);
+        AddRow(layout, 2, "Nom du compte", _name);
+        AddRow(layout, 3, "Référence / IBAN", _reference);
+        AddRow(layout, 4, "Titulaire", _holder);
+        AddRow(layout, 5, "Type de compte", _type);
 
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 16, 0, 0) };
         var save = new Button { Text = "Enregistrer", Width = 125, Height = 36, BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         var cancel = new Button { Text = "Annuler", Width = 110, Height = 36, BackColor = Color.FromArgb(51, 73, 99), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, DialogResult = DialogResult.Cancel };
         save.Click += (_, _) => Save();
         buttons.Controls.Add(save); buttons.Controls.Add(cancel);
-        layout.Controls.Add(buttons, 0, 5); layout.SetColumnSpan(buttons, 2);
+        layout.Controls.Add(buttons, 0, 6); layout.SetColumnSpan(buttons, 2);
         Controls.Add(layout);
         AcceptButton = save; CancelButton = cancel;
     }
@@ -201,8 +208,12 @@ internal sealed class SourceEditorForm : Form
         }
         Account = new BankAccountProfile
         {
-            Id = _id, BankName = _bank.Text.Trim(), AccountName = _name.Text.Trim(),
-            AccountReference = _reference.Text.Trim(), Holder = _holder.Text.Trim(),
+            Id = _id,
+            SourceDate = _sourceDate.Value.Date,
+            BankName = _bank.Text.Trim(),
+            AccountName = _name.Text.Trim(),
+            AccountReference = _reference.Text.Trim(),
+            Holder = _holder.Text.Trim(),
             Type = _type.SelectedIndex switch { 1 => BankAccountType.Epargne, 2 => BankAccountType.CarteDifferee, 3 => BankAccountType.Autre, _ => BankAccountType.Courant }
         };
         DialogResult = DialogResult.OK;
