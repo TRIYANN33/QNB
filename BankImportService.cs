@@ -302,7 +302,9 @@ internal static class BankImportService
         var check = new ImportDuplicateCheckResult { TotalOperations = result.Operations.Count };
         var known = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var previousImport in BankingRepository.LoadImports().Where(previous => SameAccount(previous, result)))
+        // Contrôle global : banque et compte ne servent pas à décider si une opération
+        // est un doublon. Toute opération déjà présente dans la base est comparée.
+        foreach (var previousImport in BankingRepository.LoadImports())
         {
             foreach (var operation in previousImport.Operations)
                 known.Add(BuildOperationFingerprint(operation));
@@ -363,7 +365,7 @@ internal static class BankImportService
         if (check.NewCount == 0)
         {
             MessageBox.Show(
-                "Aucune nouvelle opération à importer. Toutes les lignes du relevé existent déjà pour ce compte.",
+                "Le relevé a été reconnu, mais aucune nouvelle opération n'est à enregistrer : toutes ses opérations existent déjà dans la base.",
                 "QNB - Aucun transfert nécessaire",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
