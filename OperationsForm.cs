@@ -8,6 +8,8 @@ internal sealed class OperationsForm : Form
     private readonly ComboBox _bankFilter;
     private readonly ComboBox _accountFilter;
     private readonly List<OperationRow> _allRows;
+    private readonly Label _countLabel;
+    private readonly Label _totalLabel;
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
 
     public OperationsForm()
@@ -47,6 +49,11 @@ internal sealed class OperationsForm : Form
         var sortButton = new Button { Text = "Tri 3 champs", Width = 125, Height = 30, Margin = new Padding(18, 0, 0, 0), BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         sortButton.Click += (_, _) => ConfigureSort();
         filters.Controls.Add(sortButton);
+
+        _countLabel = new Label { AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9.3F, FontStyle.Bold), Margin = new Padding(28, 7, 0, 0) };
+        _totalLabel = new Label { AutoSize = true, ForeColor = Color.FromArgb(58, 196, 187), Font = new Font("Segoe UI Semibold", 9.3F, FontStyle.Bold), Margin = new Padding(24, 7, 0, 0) };
+        filters.Controls.Add(_countLabel);
+        filters.Controls.Add(_totalLabel);
         layout.Controls.Add(filters, 0, 1);
 
         _grid = new DataGridView
@@ -110,7 +117,13 @@ internal sealed class OperationsForm : Form
             ["Banque"] = x => x.Bank, ["Compte"] = x => x.Account, ["Date"] = x => x.Date, ["Nature"] = x => x.Nature,
             ["Débit"] = x => x.Debit, ["Crédit"] = x => x.Credit, ["Libellé"] = x => x.Label, ["Détails"] = x => x.Details, ["Carte différée"] = x => x.DeferredCard
         };
-        _grid.DataSource = MultiColumnSorter.Apply(rows, _sortCriteria, selectors);
+        var displayedRows = MultiColumnSorter.Apply(rows, _sortCriteria, selectors).ToList();
+        _grid.DataSource = displayedRows;
+
+        var culture = CultureInfo.GetCultureInfo("fr-FR");
+        var total = displayedRows.Sum(x => x.Credit + x.Debit);
+        _countLabel.Text = $"Opérations saisies : {_allRows.Count:N0}   •   Affichées : {displayedRows.Count:N0}";
+        _totalLabel.Text = $"Total affiché : {total.ToString("N2", culture)} €";
     }
 
     private sealed class OperationRow
