@@ -46,6 +46,7 @@ internal sealed class DuplicateAnalysisForm : Form
 {
     private readonly DataGridView _grid;
     private readonly Label _summary;
+    private readonly Label _footerSummary;
     private List<DuplicateCandidate> _candidates = new();
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
 
@@ -70,6 +71,8 @@ internal sealed class DuplicateAnalysisForm : Form
         var delete=new Button{Text="✕ Supprimer cochées",Width=185,Height=34,BackColor=Color.FromArgb(190,48,58),ForeColor=Color.White,Font=new Font("Segoe UI Semibold",9.3F,FontStyle.Bold),FlatStyle=FlatStyle.Flat};
         refresh.Click+=(_,_)=>LoadCandidates(); sort.Click+=(_,_)=>ConfigureSort(); delete.Click+=(_,_)=>DeleteChecked();
         footer.Controls.Add(close); footer.Controls.Add(refresh); footer.Controls.Add(sort); footer.Controls.Add(delete);
+        _footerSummary=new Label{AutoSize=true,ForeColor=Color.White,Font=new Font("Segoe UI Semibold",10F,FontStyle.Bold),Margin=new Padding(18,8,24,0),TextAlign=ContentAlignment.MiddleLeft};
+        footer.Controls.Add(_footerSummary);
         Controls.Add(_grid); Controls.Add(footer); Controls.Add(header); Shown+=(_,_)=>LoadCandidates();
     }
 
@@ -111,7 +114,9 @@ internal sealed class DuplicateAnalysisForm : Form
         _grid.Rows.Clear(); var culture=CultureInfo.GetCultureInfo("fr-FR");
         foreach(var line in sorted)
             _grid.Rows.Add(false,line.Candidate.Level,line.Candidate.Score+"%",line.Operation.Date.ToString("dd/MM/yyyy"),line.Operation.Amount.ToString("N2",culture),line.Operation.Bank,line.Operation.Account,BestLabel(line.Operation),line.Operation.Details,line.Candidate.Reason,line.Operation.Id);
+        var totalRecords=BankingRepository.GetDashboardStats().Operations;
         _summary.Text=$"{rows.Count} opération(s) en doublon • {_candidates.Count} paire(s)";
+        _footerSummary.Text=$"Doublons : {rows.Count:N0} / {totalRecords:N0} enregistrement(s)";
     }
 
     private void DeleteChecked()
