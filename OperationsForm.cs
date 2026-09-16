@@ -7,6 +7,7 @@ internal sealed class OperationsForm : Form
     private readonly DataGridView _grid;
     private readonly ComboBox _bankFilter;
     private readonly ComboBox _accountFilter;
+    private readonly TextBox _searchBox;
     private readonly List<OperationRow> _allRows;
     private readonly Label _countLabel;
     private readonly Label _totalLabel;
@@ -46,6 +47,10 @@ internal sealed class OperationsForm : Form
         filters.Controls.Add(_bankFilter);
         filters.Controls.Add(new Label { Text = "Compte", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
         filters.Controls.Add(_accountFilter);
+        filters.Controls.Add(new Label { Text = "Recherche", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
+        _searchBox = new TextBox { Width = 240, PlaceholderText = "Rechercher dans toutes les colonnes..." };
+        _searchBox.TextChanged += (_, _) => ApplyFilters();
+        filters.Controls.Add(_searchBox);
         var sortButton = new Button { Text = "Tri 3 champs", Width = 125, Height = 30, Margin = new Padding(18, 0, 0, 0), BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         sortButton.Click += (_, _) => ConfigureSort();
         filters.Controls.Add(sortButton);
@@ -146,6 +151,23 @@ internal sealed class OperationsForm : Form
         IEnumerable<OperationRow> rows = _allRows;
         if (!string.IsNullOrWhiteSpace(bank) && bank != "Toutes les banques") rows = rows.Where(x => x.Bank == bank);
         if (!string.IsNullOrWhiteSpace(account) && account != "Tous les comptes") rows = rows.Where(x => x.Account == account);
+
+        var search = _searchBox.Text.Trim();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var culture = CultureInfo.GetCultureInfo("fr-FR");
+            rows = rows.Where(x =>
+                ContainsSearch(x.Bank, search) ||
+                ContainsSearch(x.Account, search) ||
+                ContainsSearch(x.Date.ToString("dd/MM/yyyy", culture), search) ||
+                ContainsSearch(x.Nature, search) ||
+                ContainsSearch(x.Debit.ToString("N2", culture), search) ||
+                ContainsSearch(x.Credit.ToString("N2", culture), search) ||
+                ContainsSearch(x.Label, search) ||
+                ContainsSearch(x.Details, search) ||
+                ContainsSearch(x.DeferredCard, search));
+        }
+
         var selectors = new Dictionary<string, Func<OperationRow, object?>>(StringComparer.OrdinalIgnoreCase)
         {
             ["Banque"] = x => x.Bank, ["Compte"] = x => x.Account, ["Date"] = x => x.Date, ["Nature"] = x => x.Nature,
@@ -159,6 +181,9 @@ internal sealed class OperationsForm : Form
         _countLabel.Text = $"Opérations saisies : {_allRows.Count:N0}   •   Affichées : {displayedRows.Count:N0}";
         _totalLabel.Text = $"Total affiché : {total.ToString("N2", culture)} €";
     }
+
+    private static bool ContainsSearch(string? value, string search) =>
+        !string.IsNullOrEmpty(value) && value.Contains(search, StringComparison.CurrentCultureIgnoreCase);
 
     private sealed class OperationRow
     {
