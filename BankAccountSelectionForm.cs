@@ -102,12 +102,9 @@ internal sealed class BankAccountSelectionForm : Form
         var existing = _existingAccounts.SelectedItem as BankAccountProfile;
         if (existing is null)
         {
-            var duplicate = SourceDataService.FindDuplicateSource(_bankName.Text, _accountName.Text, _accountReference.Text, _sourceDate.Value.Date);
-            if (duplicate is not null)
-            {
-                MessageBox.Show($"La source « {duplicate.DisplayName} » existe déjà pour le {_sourceDate.Value:dd/MM/yyyy}.\n\nL'importation est annulée. Sélectionnez la source existante ou vérifiez la date du solde.", "QNB - Source déjà existante", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                SelectedAccount = null; DialogResult = DialogResult.Cancel; Close(); return;
-            }
+            // Une source déjà connue ne bloque jamais le relevé : on la réutilise.
+            // Le contrôle des doublons porte ensuite sur les opérations, juste avant leur enregistrement.
+            existing = SourceDataService.FindDuplicateSource(_bankName.Text, _accountName.Text, _accountReference.Text, _sourceDate.Value.Date);
         }
 
         var account = existing ?? new BankAccountProfile();
