@@ -74,15 +74,49 @@ internal sealed class OperationsForm : Form
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Compte", DataPropertyName = nameof(OperationRow.Account), FillWeight = 110, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Date", DataPropertyName = nameof(OperationRow.Date), FillWeight = 65, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Nature", DataPropertyName = nameof(OperationRow.Nature), FillWeight = 140, SortMode = DataGridViewColumnSortMode.NotSortable });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Débit", DataPropertyName = nameof(OperationRow.Debit), FillWeight = 70, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2", ForeColor = Color.FromArgb(235, 82, 82), SelectionForeColor = Color.FromArgb(255, 180, 180) } });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Crédit", DataPropertyName = nameof(OperationRow.Credit), FillWeight = 70, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2", ForeColor = Color.FromArgb(70, 210, 135), SelectionForeColor = Color.FromArgb(175, 255, 205) } });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Débit", DataPropertyName = nameof(OperationRow.Debit), FillWeight = 70, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2" } });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Crédit", DataPropertyName = nameof(OperationRow.Credit), FillWeight = 70, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2" } });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Libellé", DataPropertyName = nameof(OperationRow.Label), FillWeight = 150, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Détails", DataPropertyName = nameof(OperationRow.Details), FillWeight = 180, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Carte différée", DataPropertyName = nameof(OperationRow.DeferredCard), FillWeight = 75, SortMode = DataGridViewColumnSortMode.NotSortable });
+        _grid.CellFormatting += FormatAmountCells;
         layout.Controls.Add(_grid, 0, 2);
 
         Controls.Add(layout);
         RefreshAccountFilter();
+    }
+
+    private void FormatAmountCells(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.Value is null) return;
+
+        var propertyName = _grid.Columns[e.ColumnIndex].DataPropertyName;
+        if (propertyName != nameof(OperationRow.Debit) && propertyName != nameof(OperationRow.Credit)) return;
+
+        if (!decimal.TryParse(Convert.ToString(e.Value, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var amount) || amount == 0m)
+        {
+            // Montant nul : conserver le style normal du tableau.
+            e.CellStyle.BackColor = _grid.DefaultCellStyle.BackColor;
+            e.CellStyle.ForeColor = _grid.DefaultCellStyle.ForeColor;
+            e.CellStyle.SelectionBackColor = _grid.DefaultCellStyle.SelectionBackColor;
+            e.CellStyle.SelectionForeColor = _grid.DefaultCellStyle.SelectionForeColor;
+            return;
+        }
+
+        if (propertyName == nameof(OperationRow.Debit))
+        {
+            e.CellStyle.BackColor = Color.FromArgb(118, 35, 45);
+            e.CellStyle.ForeColor = Color.White;
+            e.CellStyle.SelectionBackColor = Color.FromArgb(155, 45, 58);
+            e.CellStyle.SelectionForeColor = Color.White;
+        }
+        else
+        {
+            e.CellStyle.BackColor = Color.FromArgb(25, 105, 70);
+            e.CellStyle.ForeColor = Color.White;
+            e.CellStyle.SelectionBackColor = Color.FromArgb(32, 135, 88);
+            e.CellStyle.SelectionForeColor = Color.White;
+        }
     }
 
     private void ConfigureSort()
