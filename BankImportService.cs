@@ -127,6 +127,10 @@ internal static class BankImportService
                 rows.Add(row);
             }
 
+            var legacyHeaderIndex = FindLegacyOperationsHeader(rows);
+            if (legacyHeaderIndex >= 0)
+                return ParseLegacyOperations(filePath, rows, legacyHeaderIndex);
+
             var headerIndex = FindExcelHeader(rows);
             if (headerIndex >= 0)
                 return ParseExcelStatement(filePath, rows, headerIndex);
@@ -195,6 +199,73 @@ internal static class BankImportService
 
         if (result.Operations.Count == 0)
             throw new InvalidDataException("Aucune opération bancaire n'a été détectée dans le fichier Excel.");
+
+        DetectDeferredCardSummaries(result);
+        return result;
+    }
+
+    private static int FindLegacyOperationsHeader(List<List<object?>> rows)
+    {
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var headers = rows[i].Select((_, index) => ExcelCellText(rows[i], index).Trim()).ToList();
+            if (headers.Any(x => x.Equals("Compte", StringComparison.OrdinalIgnoreCase))
+                && headers.Any(x => x.Equals("Banque", StringComparison.OrdinalIgnoreCase))
+                && headers.Any(x => x.Contains("Date opération", StringComparison.OrdinalIgnoreCase))
+                && headers.Any(x => x.Equals("Montant", StringComparison.OrdinalIgnoreCase)))
+                return i;
+        }
+        return -1;
+    }
+
+    private static BankImportResult ParseLegacyOperations(string filePath, List<List<object?>> rows, int headerIndex)
+    {
+        var headers = rows[headerIndex].Select((_, index) => ExcelCellText(rows[headerIndex], index).Trim()).ToList();
+        int FindColumn(Func<string, bool> predicate) => headers.FindIndex(x => predicate(x));
+        var accountColumn = FindColumn(x => x.Equals("Compte", StringComparison.OrdinalIgnoreCase));
+        var bankColumn = FindColumn(x => x.Equals("Banque", StringComparison.OrdinalIgnoreCase));
+        var dateColumn = FindColumn(x => x.Contains("Date opération", StringComparison.OrdinalIgnoreCase));
+        var amountColumn = FindColumn(x => x.Equals("Montant", StringComparison.OrdinalIgnoreCase));
+
+        var result = new BankImportResult { SourceFile = filePath, Currency = "EUR" };
+        for (var i = headerIndex + 1; i < rows.Count; i++)
+        {
+            var date = ExcelCellDate(rows[i], dateColumn);
+            var amount = ExcelCellAmount(rows[i], amountColumn);
+            if (!date.HasValue || !amount.HasValue) continue;
+
+            var account = ExcelCellText(rows[i], accountColumn).Trim();
+            var bank = ExcelCellText(rows[i], bankColumn).Trim();
+            if (string.IsNullOrWhiteSpace(result.AccountReference)) result.AccountReference = account;
+            if (string.IsNullOrWhiteSpace(result.BankName)) result.BankName = bank;
+
+            // Dans ce format historique, les colonnes situées entre Date opération et Montant
+            // constituent le libellé/détail de l'opération. Les colonnes techniques "Colore"
+            // sont ignorées.
+            var detailParts = new List<string>();
+            for (var column = dateColumn + 1; column < amountColumn; column++)
+            {
+                var header = column < headers.Count ? headers[column] : string.Empty;
+                if (header.StartsWith("Colore", StringComparison.OrdinalIgnoreCase)) continue;
+                var value = ExcelCellText(rows[i], column).Trim();
+                if (!string.IsNullOrWhiteSpace(value)) detailParts.Add(value);
+            }
+            var details = string.Join(" | ", detailParts);
+            var valueAmount = amount.Value;
+            result.Operations.Add(new BankOperation
+            {
+                Date = date.Value.Date,
+                Nature = ExtractNature(details),
+                Debit = valueAmount < 0m ? valueAmount : 0m,
+                Credit = valueAmount > 0m ? valueAmount : 0m,
+                Currency = "EUR",
+                InterbankLabel = details,
+                Details = details
+            });
+        }
+
+        if (result.Operations.Count == 0)
+            throw new InvalidDataException("Aucune ancienne opération n'a été détectée dans le fichier Excel.");
 
         DetectDeferredCardSummaries(result);
         return result;
