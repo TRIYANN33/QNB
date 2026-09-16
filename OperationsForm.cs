@@ -28,9 +28,10 @@ internal sealed class OperationsForm : Form
             .OrderByDescending(x => x.Date)
             .ToList();
 
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 3, BackColor = BackColor };
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 4, BackColor = BackColor };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
         layout.Controls.Add(new Label { Text = "OPÉRATIONS", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 23F, FontStyle.Bold) }, 0, 0);
@@ -55,11 +56,16 @@ internal sealed class OperationsForm : Form
         sortButton.Click += (_, _) => ConfigureSort();
         filters.Controls.Add(sortButton);
 
-        _countLabel = new Label { AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9.3F, FontStyle.Bold), Margin = new Padding(28, 7, 0, 0) };
-        _totalLabel = new Label { AutoSize = true, ForeColor = Color.FromArgb(58, 196, 187), Font = new Font("Segoe UI Semibold", 9.3F, FontStyle.Bold), Margin = new Padding(24, 7, 0, 0) };
-        filters.Controls.Add(_countLabel);
-        filters.Controls.Add(_totalLabel);
         layout.Controls.Add(filters, 0, 1);
+
+        var summary = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Color.FromArgb(7, 43, 82), Padding = new Padding(14, 5, 14, 5) };
+        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55F));
+        summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));
+        _countLabel = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold) };
+        _totalLabel = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, ForeColor = Color.FromArgb(58, 196, 187), Font = new Font("Segoe UI Semibold", 10F, FontStyle.Bold) };
+        summary.Controls.Add(_countLabel, 0, 0);
+        summary.Controls.Add(_totalLabel, 1, 0);
+        layout.Controls.Add(summary, 0, 2);
 
         _grid = new DataGridView
         {
@@ -85,7 +91,7 @@ internal sealed class OperationsForm : Form
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Détails", DataPropertyName = nameof(OperationRow.Details), FillWeight = 180, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Carte différée", DataPropertyName = nameof(OperationRow.DeferredCard), FillWeight = 75, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.CellFormatting += FormatAmountCells;
-        layout.Controls.Add(_grid, 0, 2);
+        layout.Controls.Add(_grid, 0, 3);
 
         Controls.Add(layout);
         RefreshAccountFilter();
