@@ -155,14 +155,14 @@ internal sealed class OperationsForm : Form
         var search = _searchBox.Text.Trim();
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var culture = CultureInfo.GetCultureInfo("fr-FR");
+            var searchCulture = CultureInfo.GetCultureInfo("fr-FR");
             rows = rows.Where(x =>
                 ContainsSearch(x.Bank, search) ||
                 ContainsSearch(x.Account, search) ||
-                ContainsSearch(x.Date.ToString("dd/MM/yyyy", culture), search) ||
+                ContainsSearch(x.Date.ToString("dd/MM/yyyy", searchCulture), search) ||
                 ContainsSearch(x.Nature, search) ||
-                ContainsSearch(x.Debit.ToString("N2", culture), search) ||
-                ContainsSearch(x.Credit.ToString("N2", culture), search) ||
+                ContainsSearch(x.Debit.ToString("N2", searchCulture), search) ||
+                ContainsSearch(x.Credit.ToString("N2", searchCulture), search) ||
                 ContainsSearch(x.Label, search) ||
                 ContainsSearch(x.Details, search) ||
                 ContainsSearch(x.DeferredCard, search));
