@@ -9,6 +9,7 @@ internal sealed class OperationsForm : Form
     private readonly ComboBox _accountFilter;
     private readonly TextBox _searchBox;
     private readonly List<OperationRow> _allRows;
+    private readonly Button _deleteButton;
     private readonly Label _countLabel;
     private readonly Label _totalLabel;
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
@@ -55,6 +56,9 @@ internal sealed class OperationsForm : Form
         var sortButton = new Button { Text = "Tri 3 champs", Width = 125, Height = 30, Margin = new Padding(18, 0, 0, 0), BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         sortButton.Click += (_, _) => ConfigureSort();
         filters.Controls.Add(sortButton);
+        _deleteButton = new Button { Text = "Supprimer cochées", Width = 150, Height = 30, Margin = new Padding(10, 0, 0, 0), BackColor = Color.FromArgb(150, 45, 55), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        _deleteButton.Click += (_, _) => DeleteCheckedOperations();
+        filters.Controls.Add(_deleteButton);
 
         layout.Controls.Add(filters, 0, 1);
 
@@ -70,7 +74,7 @@ internal sealed class OperationsForm : Form
         _grid = new DataGridView
         {
             Dock = DockStyle.Fill, BackgroundColor = Color.FromArgb(4, 36, 73), BorderStyle = BorderStyle.None, AutoGenerateColumns = false,
-            AllowUserToAddRows = false, AllowUserToDeleteRows = false, ReadOnly = true, RowHeadersVisible = false,
+            AllowUserToAddRows = false, AllowUserToDeleteRows = false, ReadOnly = false, RowHeadersVisible = false,
             SelectionMode = DataGridViewSelectionMode.FullRowSelect, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             EnableHeadersVisualStyles = false, GridColor = Color.FromArgb(25, 89, 145)
         };
@@ -81,6 +85,7 @@ internal sealed class OperationsForm : Form
         _grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(18, 82, 146);
         _grid.DefaultCellStyle.SelectionForeColor = Color.White;
 
+        _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Suppr.", DataPropertyName = nameof(OperationRow.DeleteSelected), Width = 55, FillWeight = 42, ReadOnly = false, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Banque", DataPropertyName = nameof(OperationRow.Bank), FillWeight = 90, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Compte", DataPropertyName = nameof(OperationRow.Account), FillWeight = 110, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Date", DataPropertyName = nameof(OperationRow.Date), FillWeight = 65, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
@@ -90,6 +95,8 @@ internal sealed class OperationsForm : Form
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Libellé", DataPropertyName = nameof(OperationRow.Label), FillWeight = 150, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Détails", DataPropertyName = nameof(OperationRow.Details), FillWeight = 180, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Carte différée", DataPropertyName = nameof(OperationRow.DeferredCard), FillWeight = 75, SortMode = DataGridViewColumnSortMode.NotSortable });
+        foreach (DataGridViewColumn column in _grid.Columns)
+            if (column is not DataGridViewCheckBoxColumn) column.ReadOnly = true;
         _grid.CellFormatting += FormatAmountCells;
         layout.Controls.Add(_grid, 0, 3);
 
@@ -128,6 +135,23 @@ internal sealed class OperationsForm : Form
             e.CellStyle.SelectionBackColor = Color.FromArgb(32, 135, 88);
             e.CellStyle.SelectionForeColor = Color.White;
         }
+    }
+
+    private void DeleteCheckedOperations()
+    {
+        _grid.EndEdit();
+        var selected = _allRows.Where(x => x.DeleteSelected).ToList();
+        if (selected.Count == 0)
+        {
+            MessageBox.Show("Cochez au moins une opération à supprimer.", "QNB - Suppression", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        var answer = MessageBox.Show($"Supprimer définitivement {selected.Count} opération(s) de la base de données ?\n\nCette action est irréversible.", "QNB - Confirmer la suppression", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+        if (answer != DialogResult.Yes) return;
+        BankingRepository.DeleteOperations(selected.Select(x => x.Id));
+        foreach (var row in selected) _allRows.Remove(row);
+        RefreshAccountFilter();
+        MessageBox.Show($"{selected.Count} opération(s) supprimée(s).", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void ConfigureSort()
@@ -193,6 +217,8 @@ internal sealed class OperationsForm : Form
 
     private sealed class OperationRow
     {
+        public long Id { get; }
+        public bool DeleteSelected { get; set; }
         public string Bank { get; }
         public string Account { get; }
         public DateTime Date { get; }
@@ -205,6 +231,7 @@ internal sealed class OperationsForm : Form
 
         public OperationRow(BankImportResult import, BankOperation operation)
         {
+            Id = operation.Id;
             Bank = string.IsNullOrWhiteSpace(import.BankName) ? "—" : import.BankName;
             Account = string.IsNullOrWhiteSpace(import.AccountDisplayName) ? import.AccountReference : import.AccountDisplayName;
             Date = operation.Date; Nature = operation.Nature; Debit = operation.Debit; Credit = operation.Credit;
