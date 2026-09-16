@@ -31,13 +31,13 @@ internal sealed class OperationsForm : Form
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 4, BackColor = BackColor };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
         layout.Controls.Add(new Label { Text = "OPÉRATIONS", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 23F, FontStyle.Bold) }, 0, 0);
 
-        var filters = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.FromArgb(4, 36, 73), Padding = new Padding(12, 9, 12, 8) };
+        var filters = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, BackColor = Color.FromArgb(4, 36, 73), Padding = new Padding(12, 9, 12, 8) };
         _bankFilter = new ComboBox { Width = 220, DropDownStyle = ComboBoxStyle.DropDownList };
         _accountFilter = new ComboBox { Width = 270, DropDownStyle = ComboBoxStyle.DropDownList };
         _bankFilter.Items.Add("Toutes les banques");
@@ -56,7 +56,11 @@ internal sealed class OperationsForm : Form
         var sortButton = new Button { Text = "Tri 3 champs", Width = 125, Height = 30, Margin = new Padding(18, 0, 0, 0), BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         sortButton.Click += (_, _) => ConfigureSort();
         filters.Controls.Add(sortButton);
-        _deleteButton = new Button { Text = "Supprimer cochées", Width = 150, Height = 30, Margin = new Padding(10, 0, 0, 0), BackColor = Color.FromArgb(150, 45, 55), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        _deleteButton = new Button { Text = "✕  Supprimer cochées", Width = 180, Height = 34, Margin = new Padding(12, 0, 0, 0), BackColor = Color.FromArgb(190, 48, 58), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
+        _deleteButton.FlatAppearance.BorderColor = Color.FromArgb(245, 115, 120);
+        _deleteButton.FlatAppearance.BorderSize = 1;
+        _deleteButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(220, 58, 68);
+        _deleteButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(155, 35, 45);
         _deleteButton.Click += (_, _) => DeleteCheckedOperations();
         filters.Controls.Add(_deleteButton);
 
