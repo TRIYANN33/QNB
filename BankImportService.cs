@@ -22,6 +22,7 @@ internal sealed class BankImportResult
 
 internal sealed class BankOperation
 {
+    public long Id { get; set; }
     public DateTime Date { get; set; }
     public string Nature { get; set; } = string.Empty;
     public decimal Debit { get; set; }
