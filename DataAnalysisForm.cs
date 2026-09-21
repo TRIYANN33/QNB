@@ -34,17 +34,35 @@ internal sealed class DataAnalysisForm : Form
             .Select(x=>{cls.TryGetValue(x.Op.Id,out var k);return new{Bank=string.IsNullOrWhiteSpace(x.Import.BankName)?"—":x.Import.BankName,Account=string.IsNullOrWhiteSpace(x.Import.AccountDisplayName)?x.Import.AccountReference:x.Import.AccountDisplayName,Op=x.Op,Type=string.IsNullOrWhiteSpace(k?.Type)?"Non typé":k.Type,SubType=string.IsNullOrWhiteSpace(k?.SubType)?"Non typé":k.SubType};}).ToList();
         if(rows.Count==0){MessageBox.Show("Aucune opération sur cette période.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
         using var save=new SaveFileDialog{Filter="Classeur Excel (*.xlsx)|*.xlsx",FileName=$"QNB_Journal_{_from.Value:yyyyMMdd}_{_to.Value:yyyyMMdd}.xlsx"};if(save.ShowDialog(this)!=DialogResult.OK)return;
-        using var wb=new XLWorkbook();var ws=wb.Worksheets.Add("Journal");
-        var headers=new[]{"Banque","Compte","Mois","Type","S_Type","Débit","Crédit","Solde"};for(var i=0;i<headers.Length;i++)ws.Cell(1,i+1).Value=headers[i];
-        var groups=rows.GroupBy(x=>new{x.Bank,x.Account,Year=x.Op.Date.Year,Month=x.Op.Date.Month,x.Type,x.SubType})
-            .OrderBy(x=>x.Key.Bank).ThenBy(x=>x.Key.Account).ThenBy(x=>x.Key.Year).ThenBy(x=>x.Key.Month).ThenBy(x=>x.Key.Type).ThenBy(x=>x.Key.SubType).ToList();var r=2;
-        foreach(var g in groups)
+        using var wb=new XLWorkbook();var ws=wb.Worksheets.Add("Journal");var r=1;
+        foreach(var account in rows.GroupBy(x=>new{x.Bank,x.Account}).OrderBy(x=>x.Key.Bank).ThenBy(x=>x.Key.Account))
         {
-            var debit=g.Sum(x=>Math.Abs(Math.Min(0m,x.Op.Amount)));var credit=g.Sum(x=>Math.Max(0m,x.Op.Amount));var balance=credit-debit;
-            ws.Cell(r,1).Value=g.Key.Bank;ws.Cell(r,2).Value=g.Key.Account;ws.Cell(r,3).Value=new DateTime(g.Key.Year,g.Key.Month,1);ws.Cell(r,4).Value=g.Key.Type;ws.Cell(r,5).Value=g.Key.SubType;ws.Cell(r,6).Value=debit;ws.Cell(r,7).Value=credit;ws.Cell(r,8).Value=balance;r++;
+            ws.Cell(r,1).Value="COMPTE";ws.Cell(r,2).Value=$"{account.Key.Bank} - {account.Key.Account}";ws.Range(r,1,r,8).Style.Font.Bold=true;r++;
+            foreach(var month in account.GroupBy(x=>new{x.Op.Date.Year,x.Op.Date.Month}).OrderBy(x=>x.Key.Year).ThenBy(x=>x.Key.Month))
+            {
+                ws.Cell(r,1).Value="MOIS";ws.Cell(r,2).Value=new DateTime(month.Key.Year,month.Key.Month,1);ws.Cell(r,2).Style.DateFormat.Format="mmmm yyyy";ws.Range(r,1,r,8).Style.Font.Bold=true;r++;
+                foreach(var type in month.GroupBy(x=>x.Type).OrderBy(x=>x.Key))
+                {
+                    ws.Cell(r,1).Value="TYPE";ws.Cell(r,2).Value=type.Key;ws.Range(r,1,r,8).Style.Font.Bold=true;r++;
+                    foreach(var sub in type.GroupBy(x=>x.SubType).OrderBy(x=>x.Key))
+                    {
+                        ws.Cell(r,1).Value="S_TYPE";ws.Cell(r,2).Value=sub.Key;ws.Range(r,1,r,8).Style.Font.Bold=true;r++;
+                        var headerRow=r;var headers=new[]{"Date","A-Z","Détails","Type","S_Type","Débit","Crédit","Solde"};for(var i=0;i<headers.Length;i++)ws.Cell(r,i+1).Value=headers[i];ws.Range(r,1,r,8).Style.Font.Bold=true;r++;
+                        decimal subtotalDebit=0,subtotalCredit=0;
+                        foreach(var x in sub.OrderBy(x=>x.Op.Date).ThenBy(x=>x.Op.Id))
+                        {
+                            var debit=Math.Abs(Math.Min(0m,x.Op.Amount));var credit=Math.Max(0m,x.Op.Amount);subtotalDebit+=debit;subtotalCredit+=credit;
+                            ws.Cell(r,1).Value=x.Op.Date;ws.Cell(r,2).Value=string.IsNullOrWhiteSpace(x.Op.InterbankLabel)?x.Op.Nature:x.Op.InterbankLabel;ws.Cell(r,3).Value=x.Op.Details;ws.Cell(r,4).Value=x.Type;ws.Cell(r,5).Value=x.SubType;ws.Cell(r,6).Value=debit;ws.Cell(r,7).Value=credit;ws.Cell(r,8).Value=credit-debit;r++;
+                        }
+                        ws.Cell(r,5).Value="Total";ws.Cell(r,6).Value=subtotalDebit;ws.Cell(r,7).Value=subtotalCredit;ws.Cell(r,8).Value=subtotalCredit-subtotalDebit;ws.Range(r,5,r,8).Style.Font.Bold=true;r+=2;
+                    }
+                }
+                r++;
+            }
+            r++;
         }
-        ws.Range(1,1,r-1,8).CreateTable("JournalMensuel");ws.Column(3).Style.DateFormat.Format="mmmm yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);
-        wb.SaveAs(save.FileName);_status.Text=$"Journal créé : {groups.Count:N0} lignes Type / S_Type • {rows.Count:N0} opérations";MessageBox.Show("Le journal par compte, mois, Type et S_Type a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
+        ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);
+        wb.SaveAs(save.FileName);_status.Text=$"Journal détaillé créé : {rows.Count:N0} opérations";MessageBox.Show("Le journal détaillé par compte, mois, Type et S_Type a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 
     private void ExportLedger()
