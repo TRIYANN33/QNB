@@ -40,13 +40,9 @@ internal sealed class DataAnalysisForm : Form
         synth.Cell(1,1).Value="Type";synth.Cell(1,2).Value="Dépenses";synth.Cell(1,3).Value="Recettes";var totals=rows.GroupBy(x=>x.Type).OrderBy(x=>x.Key).ToList();var sr=2;
         foreach(var g in totals){synth.Cell(sr,1).Value=g.Key;synth.Cell(sr,2).Value=g.Sum(x=>Math.Abs(Math.Min(0m,x.Op.Debit+x.Op.Credit)));synth.Cell(sr,3).Value=g.Sum(x=>Math.Max(0m,x.Op.Debit+x.Op.Credit));sr++;}
         synth.Columns().AdjustToContents();synth.Columns(2,3).Style.NumberFormat.Format="#,##0.00 €";
-        AddPie(synth,"Répartition des dépenses",2,sr-1,2,5);AddPie(synth,"Répartition des recettes",2,sr-1,3,22);
+        // Les données de répartition sont prêtes pour les graphiques Excel.
+        // ClosedXML 0.104 ne fournit pas d'API de création de graphiques.
         wb.SaveAs(save.FileName);_status.Text=$"{rows.Count:N0} opérations exportées • {data.Count:N0} lignes mensuelles";MessageBox.Show("Le classeur Excel d'analyse a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
-    private static void AddPie(IXLWorksheet ws,string title,int first,int last,int valueColumn,int topRow)
-    {
-        if(last<first)return;var chart=ws.Charts.Add<IXLPieChart>();chart.Title.Text=title;chart.SetPosition(topRow,5);chart.SetSize(650,320);
-        var series=chart.Series.Add(title);series.SetCategories(ws.Range(first,1,last,1));series.SetValues(ws.Range(first,valueColumn,last,valueColumn));
-        series.DataLabels.ShowPercentage=true;series.DataLabels.ShowLeaderLines=true;chart.Legend.Position=XLChartLegendPosition.Right;
-    }
+
 }
