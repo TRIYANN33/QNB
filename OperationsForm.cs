@@ -11,6 +11,7 @@ internal sealed class OperationsForm : Form
     private readonly DateTimePicker _periodFrom;
     private readonly DateTimePicker _periodTo;
     private readonly CheckBox _periodEnabled;
+    private readonly CheckBox _withoutTypeFilter;
     private readonly List<OperationRow> _allRows;
     private readonly Button _deleteButton;
     private readonly Label _countLabel;
@@ -75,6 +76,9 @@ internal sealed class OperationsForm : Form
         filters.Controls.Add(_periodEnabled);
         filters.Controls.Add(new Label { Text="Du",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(5,7,4,0) }); filters.Controls.Add(_periodFrom);
         filters.Controls.Add(new Label { Text="au",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(5,7,4,0) }); filters.Controls.Add(_periodTo);
+        _withoutTypeFilter = new CheckBox { Text = "Sans Type", AutoSize = true, ForeColor = Color.FromArgb(255,205,120), Margin = new Padding(18,6,5,0) };
+        _withoutTypeFilter.CheckedChanged += (_,_) => ApplyFilters();
+        filters.Controls.Add(_withoutTypeFilter);
         filters.Controls.Add(new Label { Text = "N°", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(18,7,4,0) });
         _goToNumber = new NumericUpDown { Width = 75, Minimum = 1, Maximum = Math.Max(1,_allRows.Count), Margin = new Padding(0,2,0,0) };
         var goButton = new Button { Text = "Aller", Width = 58, Height = 30, Margin = new Padding(4,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
@@ -282,6 +286,7 @@ internal sealed class OperationsForm : Form
         IEnumerable<OperationRow> rows = _allRows;
         if (!string.IsNullOrWhiteSpace(bank) && bank != "Toutes les banques") rows = rows.Where(x => x.Bank == bank);
         if (!string.IsNullOrWhiteSpace(account) && account != "Tous les comptes") rows = rows.Where(x => x.Account == account);
+        if (_withoutTypeFilter.Checked) rows = rows.Where(x => string.IsNullOrWhiteSpace(x.Type));
         if (_periodEnabled.Checked)
         {
             var from=_periodFrom.Value.Date; var to=_periodTo.Value.Date;
