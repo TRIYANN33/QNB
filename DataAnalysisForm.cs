@@ -52,9 +52,15 @@ internal sealed class DataAnalysisForm : Form
                             var debit=Math.Abs(Math.Min(0m,x.Op.Amount));var credit=Math.Max(0m,x.Op.Amount);subtotalDebit+=debit;subtotalCredit+=credit;
                             ws.Cell(r,1).Value=x.Op.Date;ws.Cell(r,2).Value=string.IsNullOrWhiteSpace(x.Op.InterbankLabel)?x.Op.Nature:x.Op.InterbankLabel;ws.Cell(r,3).Value=x.Op.Details;ws.Cell(r,4).Value=x.Type;ws.Cell(r,5).Value=x.SubType;ws.Cell(r,6).Value=debit;ws.Cell(r,7).Value=credit;ws.Cell(r,8).Value=credit-debit;
                             if(alternate)ws.Range(r,1,r,8).Style.Fill.BackgroundColor=XLColor.LightBlue;
+                            if(debit>0)ws.Cell(r,6).Style.Font.FontColor=XLColor.Red;
+                            if(credit>0)ws.Cell(r,7).Style.Font.FontColor=XLColor.Green;
+                            ws.Cell(r,8).Style.Font.FontColor=(credit-debit)<0?XLColor.Red:XLColor.Green;
                             alternate=!alternate;r++;
                         }
-                        ws.Cell(r,5).Value="Total";ws.Cell(r,6).Value=subtotalDebit;ws.Cell(r,7).Value=subtotalCredit;ws.Cell(r,8).Value=subtotalCredit-subtotalDebit;ws.Range(r,5,r,8).Style.Font.Bold=true;r+=2;
+                        ws.Cell(r,5).Value="Total";ws.Cell(r,6).Value=subtotalDebit;ws.Cell(r,7).Value=subtotalCredit;ws.Cell(r,8).Value=subtotalCredit-subtotalDebit;ws.Range(r,5,r,8).Style.Font.Bold=true;
+                        if(subtotalDebit>0)ws.Cell(r,6).Style.Font.FontColor=XLColor.Red;
+                        if(subtotalCredit>0)ws.Cell(r,7).Style.Font.FontColor=XLColor.Green;
+                        ws.Cell(r,8).Style.Font.FontColor=(subtotalCredit-subtotalDebit)<0?XLColor.Red:XLColor.Green;r+=2;
                     }
                 }
                 r++;
