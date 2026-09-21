@@ -47,6 +47,7 @@ internal sealed class DuplicateAnalysisForm : Form
     private readonly DataGridView _grid;
     private readonly Label _summary;
     private readonly Label _footerSummary;
+    private readonly ComboBox _accountFilter;
     private List<DuplicateCandidate> _candidates = new();
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
 
@@ -57,6 +58,9 @@ internal sealed class DuplicateAnalysisForm : Form
         header.Controls.Add(new Label{Text="Analyse globale des doublons",AutoSize=true,Font=new Font("Segoe UI Semibold",16F,FontStyle.Bold),ForeColor=Color.White,Location=new Point(18,10)});
         header.Controls.Add(new Label{Text="Toutes les opérations impliquées dans un doublon sont affichées séparément • cochez celles que vous souhaitez supprimer",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Location=new Point(20,44)});
         _summary=new Label{AutoSize=true,Anchor=AnchorStyles.Top|AnchorStyles.Right,ForeColor=Color.FromArgb(58,196,187),Font=new Font("Segoe UI Semibold",10F,FontStyle.Bold),Location=new Point(1150,28)}; header.Controls.Add(_summary);
+        header.Controls.Add(new Label{Text="Compte :",AutoSize=true,ForeColor=Color.White,Location=new Point(620,47)});
+        _accountFilter=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=300,Location=new Point(680,43)};
+        _accountFilter.SelectedIndexChanged+=(_,_)=>RenderCandidates(); header.Controls.Add(_accountFilter);
 
         _grid=new DataGridView{Dock=DockStyle.Fill,ReadOnly=false,AllowUserToAddRows=false,AllowUserToDeleteRows=false,AutoGenerateColumns=false,BackgroundColor=Color.FromArgb(7,42,78),SelectionMode=DataGridViewSelectionMode.FullRowSelect,MultiSelect=true,RowHeadersVisible=false,EnableHeadersVisualStyles=false};
         _grid.ColumnHeadersDefaultCellStyle.BackColor=Color.FromArgb(8,73,137); _grid.ColumnHeadersDefaultCellStyle.ForeColor=Color.White;
@@ -94,14 +98,24 @@ internal sealed class DuplicateAnalysisForm : Form
 
     private void LoadCandidates()
     {
-        Cursor=Cursors.WaitCursor; try{_candidates=DuplicateAnalysisService.Analyze();RenderCandidates();}finally{Cursor=Cursors.Default;}
+        Cursor=Cursors.WaitCursor; try{_candidates=DuplicateAnalysisService.Analyze();ReloadAccountFilter();RenderCandidates();}finally{Cursor=Cursors.Default;}
+    }
+
+    private void ReloadAccountFilter()
+    {
+        var current=_accountFilter.SelectedItem?.ToString()??"Tous les comptes";
+        var accounts=_candidates.SelectMany(x=>new[]{x.Left.Account,x.Right.Account}).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(x=>x).ToList();
+        _accountFilter.BeginUpdate();_accountFilter.Items.Clear();_accountFilter.Items.Add("Tous les comptes");foreach(var account in accounts)_accountFilter.Items.Add(account);
+        var index=_accountFilter.Items.IndexOf(current);_accountFilter.SelectedIndex=index>=0?index:0;_accountFilter.EndUpdate();
     }
 
     private void RenderCandidates()
     {
         // Une opération peut apparaître dans plusieurs paires. On ne l'affiche qu'une fois,
         // tout en conservant le meilleur score/motif rencontré.
-        var rows=_candidates
+        var selectedAccount=_accountFilter.SelectedItem?.ToString();
+        var candidates=string.IsNullOrWhiteSpace(selectedAccount)||selectedAccount=="Tous les comptes"?_candidates:_candidates.Where(x=>string.Equals(x.Left.Account,selectedAccount,StringComparison.CurrentCultureIgnoreCase)||string.Equals(x.Right.Account,selectedAccount,StringComparison.CurrentCultureIgnoreCase)).ToList();
+        var rows=candidates
             .SelectMany(c=>new[]{new DuplicateLine(c,c.Left),new DuplicateLine(c,c.Right)})
             .GroupBy(x=>x.Operation.Id)
             .Select(g=>g.OrderByDescending(x=>x.Candidate.Score).First())
@@ -117,7 +131,7 @@ internal sealed class DuplicateAnalysisForm : Form
         foreach(var line in sorted)
             _grid.Rows.Add(false,line.Candidate.Level,line.Candidate.Score+"%",line.Operation.Date.ToString("dd/MM/yyyy"),line.Operation.Amount.ToString("N2",culture),line.Operation.Bank,line.Operation.Account,BestLabel(line.Operation),line.Operation.Details,line.Candidate.Reason,line.Operation.Id);
         var totalRecords=BankingRepository.GetDashboardStats().Operations;
-        _summary.Text=$"{rows.Count} opération(s) en doublon • {_candidates.Count} paire(s)";
+        _summary.Text=$"{rows.Count} opération(s) en doublon • {candidates.Count} paire(s)";
         _footerSummary.Text=$"Doublons : {rows.Count:N0} / {totalRecords:N0} enregistrement(s)";
     }
 
