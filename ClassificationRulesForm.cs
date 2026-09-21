@@ -30,8 +30,10 @@ internal sealed class ClassificationRulesForm : Form
 
     private void FormatColorCell(object? sender, DataGridViewCellFormattingEventArgs e)
     {
-        if(e.RowIndex<0 || _grid.Columns[e.ColumnIndex].DataPropertyName!="CellColor") return;
-        var value=Convert.ToString(e.Value);
+        if(e.RowIndex<0 || _grid.Rows[e.RowIndex].DataBoundItem is not ClassificationRule rule) return;
+        var property=_grid.Columns[e.ColumnIndex].DataPropertyName;
+        if(property!="Type" && property!="CellColor") return;
+        var value=rule.CellColor;
         if(string.IsNullOrWhiteSpace(value)) return;
         try
         {
