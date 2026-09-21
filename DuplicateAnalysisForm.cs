@@ -49,6 +49,7 @@ internal sealed class DuplicateAnalysisForm : Form
     private readonly Label _footerSummary;
     private readonly ComboBox _accountFilter;
     private readonly TextBox _selectedOperationInfo;
+    private bool _groupCheckedRows;
     private List<DuplicateCandidate> _candidates = new();
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
 
@@ -71,6 +72,8 @@ internal sealed class DuplicateAnalysisForm : Form
         foreach(DataGridViewColumn column in _grid.Columns) if(column is not DataGridViewCheckBoxColumn) column.ReadOnly=true;
         _grid.SelectionChanged+=(_,_)=>UpdateSelectedOperationInfo();
         _grid.CellClick+=(_,_)=>UpdateSelectedOperationInfo();
+        _grid.CellValueChanged+=(_,e)=>{if(e.RowIndex>=0&&_grid.Columns[e.ColumnIndex].Name=="Choix")GroupCheckedRows();};
+        _grid.CurrentCellDirtyStateChanged+=(_,_)=>{if(_grid.IsCurrentCellDirty&&_grid.CurrentCell is DataGridViewCheckBoxCell)_grid.CommitEdit(DataGridViewDataErrorContexts.Commit);};
 
         var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=58,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(10),BackColor=Color.FromArgb(4,36,73)};
         var close=new Button{Text="Fermer",Width=110,Height=34,DialogResult=DialogResult.Cancel};
@@ -150,6 +153,26 @@ internal sealed class DuplicateAnalysisForm : Form
     {
         var answer=MessageBox.Show("Réafficher toutes les paires précédemment marquées « Pas un doublon » ?","QNB - Doublons",MessageBoxButtons.YesNo,MessageBoxIcon.Question);
         if(answer!=DialogResult.Yes)return;BankingRepository.ClearDuplicateExclusions();LoadCandidates();
+    }
+
+    private void GroupCheckedRows()
+    {
+        if(_groupCheckedRows)return;
+        var checkedIds=_grid.Rows.Cast<DataGridViewRow>().Where(r=>Convert.ToBoolean(r.Cells["Choix"].Value??false)).Select(r=>Convert.ToInt64(r.Cells["OperationId"].Value)).ToList();
+        if(checkedIds.Count!=2)return;
+        var first=_grid.Rows.Cast<DataGridViewRow>().First(r=>Convert.ToInt64(r.Cells["OperationId"].Value)==checkedIds[0]);
+        var second=_grid.Rows.Cast<DataGridViewRow>().First(r=>Convert.ToInt64(r.Cells["OperationId"].Value)==checkedIds[1]);
+        if(first.Index+1==second.Index)return;
+        _groupCheckedRows=true;
+        try
+        {
+            var values=second.Cells.Cast<DataGridViewCell>().Select(x=>x.Value).ToArray();
+            _grid.Rows.Remove(second);
+            var index=Math.Min(first.Index+1,_grid.Rows.Count);
+            _grid.Rows.Insert(index,values);
+            _grid.Rows[index].Cells["Choix"].Value=true;
+        }
+        finally{_groupCheckedRows=false;}
     }
 
     private void UpdateSelectedOperationInfo()
