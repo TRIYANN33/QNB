@@ -312,10 +312,20 @@ public sealed class MainForm : Form
         RefreshDashboardStats();
     }
 
+    private ClassificationRulesForm? _classificationRulesForm;
+
     private void ShowClassificationRules()
     {
-        using var form = new ClassificationRulesForm();
-        form.ShowDialog(this);
+        if (_classificationRulesForm is not null && !_classificationRulesForm.IsDisposed)
+        {
+            _classificationRulesForm.BringToFront();
+            _classificationRulesForm.Activate();
+            return;
+        }
+
+        _classificationRulesForm = new ClassificationRulesForm();
+        _classificationRulesForm.FormClosed += (_, _) => _classificationRulesForm = null;
+        _classificationRulesForm.Show(this);
     }
 
     private void ShowDuplicateAnalysis()
