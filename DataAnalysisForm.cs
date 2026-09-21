@@ -11,17 +11,35 @@ internal sealed class DataAnalysisForm : Form
 
     public DataAnalysisForm()
     {
-        Text="QNB - Analyse des données";StartPosition=FormStartPosition.CenterParent;Size=new Size(760,300);MinimumSize=new Size(650,280);
+        Text="QNB - Analyse des données";StartPosition=FormStartPosition.CenterParent;Size=new Size(920,380);MinimumSize=new Size(760,340);
         BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",10F);
         var title=new Label{Text="ANALYSE DES DONNÉES",Dock=DockStyle.Top,Height=62,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(22,0,0,0),Font=new Font("Segoe UI Semibold",20F,FontStyle.Bold)};
         var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(22),BackColor=Color.FromArgb(4,36,73),FlowDirection=FlowDirection.LeftToRight,WrapContents=true};
         var ops=BankingRepository.LoadImports().SelectMany(x=>x.Operations).ToList();var min=ops.Count>0?ops.Min(x=>x.Date).Date:DateTime.Today;var max=ops.Count>0?ops.Max(x=>x.Date).Date:DateTime.Today;
         _from.Value=min;_to.Value=max;
         panel.Controls.Add(Label("Du"));panel.Controls.Add(_from);panel.Controls.Add(Label("au"));panel.Controls.Add(_to);
-        var export=new Button{Text="Créer Excel",Width=150,Height=34,Margin=new Padding(20,0,0,0),BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};export.Click+=(_,_)=>Export();panel.Controls.Add(export);
+        var export=new Button{Text="Analyse mensuelle",Width=160,Height=34,Margin=new Padding(20,0,0,0),BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};export.Click+=(_,_)=>Export();panel.Controls.Add(export);
+        var account=new Button{Text="Compte / S_Type",Width=160,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(16,112,187),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};account.Click+=(_,_)=>{using var x=new BankSubTypeAnalysisForm(_from.Value.Date,_to.Value.Date);x.ShowDialog(this);};panel.Controls.Add(account);
+        var ledger=new Button{Text="Grand livre comptable",Width=190,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(120,82,160),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};ledger.Click+=(_,_)=>ExportLedger();panel.Controls.Add(ledger);
         _status.Margin=new Padding(0,22,0,0);_status.Width=680;panel.SetFlowBreak(export,true);panel.Controls.Add(_status);
         Controls.Add(panel);Controls.Add(title);
     }
+    private void ExportLedger()
+    {
+        if(_from.Value.Date>_to.Value.Date){MessageBox.Show("La date de début doit être antérieure à la date de fin.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}
+        var cls=BankingRepository.LoadOperationClassifications();
+        var rows=BankingRepository.LoadImports().SelectMany(i=>i.Operations.Select(o=>new{Import=i,Op=o})).Where(x=>x.Op.Date.Date>=_from.Value.Date&&x.Op.Date.Date<=_to.Value.Date)
+            .Select(x=>{cls.TryGetValue(x.Op.Id,out var k);return new{Bank=x.Import.BankName,Account=x.Import.AccountDisplayName,Op=x.Op,Type=string.IsNullOrWhiteSpace(k?.Type)?"Non typé":k.Type,SubType=string.IsNullOrWhiteSpace(k?.SubType)?"Non typé":k.SubType};}).OrderBy(x=>x.Op.Date).ThenBy(x=>x.Op.Id).ToList();
+        if(rows.Count==0){MessageBox.Show("Aucune opération sur cette période.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        using var save=new SaveFileDialog{Filter="Classeur Excel (*.xlsx)|*.xlsx",FileName=$"QNB_Grand_Livre_{_from.Value:yyyyMMdd}_{_to.Value:yyyyMMdd}.xlsx"};if(save.ShowDialog(this)!=DialogResult.OK)return;
+        using var wb=new XLWorkbook();var ws=wb.Worksheets.Add("Grand livre");
+        var headers=new[]{"Date","Banque","Compte","Type","S_Type","Libellé","Détails","Débit","Crédit","Solde cumulé"};for(var i=0;i<headers.Length;i++)ws.Cell(1,i+1).Value=headers[i];
+        decimal balance=0;var r=2;
+        foreach(var x in rows){var debit=Math.Abs(Math.Min(0m,x.Op.Debit+x.Op.Credit));var credit=Math.Max(0m,x.Op.Debit+x.Op.Credit);balance+=credit-debit;ws.Cell(r,1).Value=x.Op.Date;ws.Cell(r,2).Value=x.Bank;ws.Cell(r,3).Value=x.Account;ws.Cell(r,4).Value=x.Type;ws.Cell(r,5).Value=x.SubType;ws.Cell(r,6).Value=x.Op.Label;ws.Cell(r,7).Value=x.Op.Details;ws.Cell(r,8).Value=debit;ws.Cell(r,9).Value=credit;ws.Cell(r,10).Value=balance;r++;}
+        ws.Range(1,1,r-1,10).CreateTable("GrandLivre");ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(8,10).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);wb.SaveAs(save.FileName);
+        _status.Text=$"Grand livre créé : {rows.Count:N0} écritures";MessageBox.Show("Le grand livre comptable a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
+    }
+
     private static Label Label(string s)=>new(){Text=s,AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(8,7,5,0)};
     private void Export()
     {
