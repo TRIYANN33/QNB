@@ -113,7 +113,8 @@ internal sealed class DuplicateAnalysisForm : Form
     private void ReloadAccountFilter()
     {
         var current=_accountFilter.SelectedItem?.ToString()??"Tous les comptes";
-        var accounts=_candidates.SelectMany(x=>new[]{AccountKey(x.Left),AccountKey(x.Right)}).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(x=>x).ToList();
+        // La liste ne propose que les comptes qui ont encore au moins une paire de doublons interne au même compte.
+        var accounts=_candidates.Where(x=>string.Equals(AccountKey(x.Left),AccountKey(x.Right),StringComparison.CurrentCultureIgnoreCase)).Select(x=>AccountKey(x.Left)).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(x=>x).ToList();
         _accountFilter.BeginUpdate();_accountFilter.Items.Clear();_accountFilter.Items.Add("Tous les comptes");foreach(var account in accounts)_accountFilter.Items.Add(account);
         var index=_accountFilter.Items.IndexOf(current);_accountFilter.SelectedIndex=index>=0?index:0;_accountFilter.EndUpdate();
     }
