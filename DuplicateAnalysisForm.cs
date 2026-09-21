@@ -138,8 +138,9 @@ internal sealed class DuplicateAnalysisForm : Form
     private void MarkNotDuplicate()
     {
         _grid.EndEdit();var selected=new List<long>();foreach(DataGridViewRow row in _grid.Rows)if(Convert.ToBoolean(row.Cells["Choix"].Value??false)&&long.TryParse(Convert.ToString(row.Cells["OperationId"].Value),out var id))selected.Add(id);
-        selected=selected.Distinct().ToList();if(selected.Count!=2){MessageBox.Show("Cochez exactement les 2 opérations qui ne sont pas des doublons.","QNB - Doublons",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
-        BankingRepository.ExcludeDuplicatePair(selected[0],selected[1]);LoadCandidates();
+        selected=selected.Distinct().ToList();if(selected.Count<2){MessageBox.Show("Cochez au moins 2 opérations qui ne sont pas des doublons.","QNB - Doublons",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        var pairs=0;for(var i=0;i<selected.Count;i++)for(var j=i+1;j<selected.Count;j++){BankingRepository.ExcludeDuplicatePair(selected[i],selected[j]);pairs++;}
+        LoadCandidates();MessageBox.Show($"{selected.Count} opération(s) traitée(s) • {pairs} paire(s) marquée(s) « Pas un doublon ».","QNB - Doublons",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
     private void RestoreExcluded()
     {
