@@ -41,7 +41,7 @@ internal sealed class OperationsForm : Form
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         header.Controls.Add(new Label { Text = "OPÉRATIONS", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 23F, FontStyle.Bold) }, 0, 0);
-        _selectedOperationInfo = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(7,43,82), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 10F), Margin = new Padding(8,14,0,14), PlaceholderText = "Sélectionnez une opération : Date • Libellé" };
+        _selectedOperationInfo = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(7,43,82), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 10F), Margin = new Padding(8,14,0,14), PlaceholderText = "Sélectionnez une opération : Date • Libellé • Détail" };
         header.Controls.Add(_selectedOperationInfo, 1, 0);
         layout.Controls.Add(header, 0, 0);
 
@@ -134,7 +134,8 @@ internal sealed class OperationsForm : Form
             return;
         }
         var label = string.IsNullOrWhiteSpace(row.Label) ? row.Nature : row.Label;
-        _selectedOperationInfo.Text = $"{row.Date:dd/MM/yyyy}   •   {label}";
+        var details = string.IsNullOrWhiteSpace(row.Details) ? "—" : row.Details;
+        _selectedOperationInfo.Text = $"{row.Date:dd/MM/yyyy}   •   {label}   •   {details}";
     }
 
     private void FormatAmountCells(object? sender, DataGridViewCellFormattingEventArgs e)
