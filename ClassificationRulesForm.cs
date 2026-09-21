@@ -25,6 +25,7 @@ internal sealed class ClassificationRulesForm : Form
         var del=Button("Supprimer",Color.FromArgb(190,48,58),110); var apply=Button("Appliquer maintenant",Color.FromArgb(108,76,170),165); var close=Button("Fermer",Color.FromArgb(60,75,95),100);
         add.Click+=(_,_)=>EditRule(null); duplicate.Click+=(_,_)=>DuplicateSelected(); edit.Click+=(_,_)=>EditSelected(); del.Click+=(_,_)=>DeleteSelected(); apply.Click+=(_,_)=>ApplyRules(); close.Click+=(_,_)=>Close();
         bar.Controls.AddRange(new Control[]{add,duplicate,edit,del,apply,close});
+        _grid.CellDoubleClick+=(_,e)=>{if(e.RowIndex>=0)EditSelected();};
         Controls.Add(_grid); Controls.Add(info); Controls.Add(title); Controls.Add(bar); Shown+=(_,_)=>Reload();
     }
 
