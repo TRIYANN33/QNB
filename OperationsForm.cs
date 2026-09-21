@@ -24,8 +24,9 @@ internal sealed class OperationsForm : Form
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9.3F);
 
+        var classifications = BankingRepository.LoadOperationClassifications();
         _allRows = BankingRepository.LoadImports()
-            .SelectMany(import => import.Operations.Select(operation => new OperationRow(import, operation)))
+            .SelectMany(import => import.Operations.Select(operation => new OperationRow(import, operation, classifications.TryGetValue(operation.Id, out var classification) ? classification : null)))
             .OrderByDescending(x => x.Date)
             .ToList();
 
@@ -63,6 +64,10 @@ internal sealed class OperationsForm : Form
         _deleteButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(155, 35, 45);
         _deleteButton.Click += (_, _) => DeleteCheckedOperations();
         filters.Controls.Add(_deleteButton);
+        var manualButton = new Button { Text = "Typage manuel", Width = 130, Height = 34, Margin = new Padding(12,0,0,0), BackColor = Color.FromArgb(108,76,170), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        manualButton.Click += (_, _) => ClassifySelectedManually(); filters.Controls.Add(manualButton);
+        var autoButton = new Button { Text = "Typage auto", Width = 115, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(25,130,105), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        autoButton.Click += (_, _) => ApplyAutomaticTyping(); filters.Controls.Add(autoButton);
 
         layout.Controls.Add(filters, 0, 1);
 
@@ -93,6 +98,9 @@ internal sealed class OperationsForm : Form
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Banque", DataPropertyName = nameof(OperationRow.Bank), FillWeight = 90, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Compte", DataPropertyName = nameof(OperationRow.Account), FillWeight = 110, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Date", DataPropertyName = nameof(OperationRow.Date), FillWeight = 65, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Type", DataPropertyName = nameof(OperationRow.Type), FillWeight = 90, SortMode = DataGridViewColumnSortMode.NotSortable });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "S_Type", DataPropertyName = nameof(OperationRow.SubType), FillWeight = 95, SortMode = DataGridViewColumnSortMode.NotSortable });
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Mode", DataPropertyName = nameof(OperationRow.ClassificationMode), FillWeight = 60, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Nature", DataPropertyName = nameof(OperationRow.Nature), FillWeight = 140, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Débit", DataPropertyName = nameof(OperationRow.Debit), FillWeight = 70, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2" } });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Crédit", DataPropertyName = nameof(OperationRow.Credit), FillWeight = 70, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "N2" } });
@@ -102,6 +110,7 @@ internal sealed class OperationsForm : Form
         foreach (DataGridViewColumn column in _grid.Columns)
             if (column is not DataGridViewCheckBoxColumn) column.ReadOnly = true;
         _grid.CellFormatting += FormatAmountCells;
+        _grid.CellFormatting += FormatClassificationCells;
         layout.Controls.Add(_grid, 0, 3);
 
         Controls.Add(layout);
@@ -141,6 +150,38 @@ internal sealed class OperationsForm : Form
         }
     }
 
+    private void FormatClassificationCells(object? sender, DataGridViewCellFormattingEventArgs e)
+    {
+        if (e.RowIndex < 0 || _grid.Rows[e.RowIndex].DataBoundItem is not OperationRow row) return;
+        var property = _grid.Columns[e.ColumnIndex].DataPropertyName;
+        if (property != nameof(OperationRow.Type) && property != nameof(OperationRow.SubType)) return;
+        var text = (row.Type + " " + row.SubType).ToUpperInvariant();
+        if (text.Contains("SUPERMARCH")) { e.CellStyle.BackColor=Color.RoyalBlue; e.CellStyle.ForeColor=Color.White; }
+        else if (text.Contains("BOULANGER")) { e.CellStyle.BackColor=Color.White; e.CellStyle.ForeColor=Color.Black; }
+        else if (text.Contains("PRIMEUR")) { e.CellStyle.BackColor=Color.Orange; e.CellStyle.ForeColor=Color.Black; }
+        else if (text.Contains("BOUCHER")) { e.CellStyle.BackColor=Color.HotPink; e.CellStyle.ForeColor=Color.White; }
+        else if (text.Contains("CABINET MEDICALE") || text.Contains("CIPAV")) { e.CellStyle.BackColor=Color.ForestGreen; e.CellStyle.ForeColor=Color.White; }
+        else if (text.Contains("URSSAF") || text.Contains("IMPOT") || text.Contains("ASSURANCE")) { e.CellStyle.BackColor=Color.Firebrick; e.CellStyle.ForeColor=Color.White; }
+    }
+
+    private void ClassifySelectedManually()
+    {
+        if (_grid.CurrentRow?.DataBoundItem is not OperationRow row) { MessageBox.Show("Sélectionnez une opération.", "QNB - Typage", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        using var dialog = new ManualClassificationForm(row.Type,row.SubType);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        BankingRepository.SetOperationClassification(row.Id,dialog.OperationType,dialog.OperationSubType,"Manuel");
+        row.Type=dialog.OperationType; row.SubType=dialog.OperationSubType; row.ClassificationMode="Manuel"; ApplyFilters();
+    }
+
+    private void ApplyAutomaticTyping()
+    {
+        var changed=BankingRepository.ApplyAutomaticClassification();
+        var classifications=BankingRepository.LoadOperationClassifications();
+        foreach(var row in _allRows) if(classifications.TryGetValue(row.Id,out var x)){row.Type=x.Type;row.SubType=x.SubType;row.ClassificationMode=x.Mode;}
+        ApplyFilters();
+        MessageBox.Show($"{changed} opération(s) classée(s) automatiquement. Les modifications manuelles sont conservées.", "QNB - Typage automatique", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
     private void DeleteCheckedOperations()
     {
         _grid.EndEdit();
@@ -160,7 +201,7 @@ internal sealed class OperationsForm : Form
 
     private void ConfigureSort()
     {
-        var fields = new[] { "Banque", "Compte", "Date", "Nature", "Débit", "Crédit", "Libellé", "Détails", "Carte différée" };
+        var fields = new[] { "Banque", "Compte", "Date", "Type", "S_Type", "Mode", "Nature", "Débit", "Crédit", "Libellé", "Détails", "Carte différée" };
         var selected = MultiColumnSortDialog.Select(this, fields, _sortCriteria);
         if (selected is null) return;
         _sortCriteria = selected;
@@ -194,6 +235,7 @@ internal sealed class OperationsForm : Form
                 ContainsSearch(x.Bank, search) ||
                 ContainsSearch(x.Account, search) ||
                 ContainsSearch(x.Date.ToString("dd/MM/yyyy", searchCulture), search) ||
+                ContainsSearch(x.Type, search) || ContainsSearch(x.SubType, search) || ContainsSearch(x.ClassificationMode, search) ||
                 ContainsSearch(x.Nature, search) ||
                 ContainsSearch(x.Debit.ToString("N2", searchCulture), search) ||
                 ContainsSearch(x.Credit.ToString("N2", searchCulture), search) ||
@@ -204,7 +246,7 @@ internal sealed class OperationsForm : Form
 
         var selectors = new Dictionary<string, Func<OperationRow, object?>>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Banque"] = x => x.Bank, ["Compte"] = x => x.Account, ["Date"] = x => x.Date, ["Nature"] = x => x.Nature,
+            ["Banque"] = x => x.Bank, ["Compte"] = x => x.Account, ["Date"] = x => x.Date, ["Type"] = x => x.Type, ["S_Type"] = x => x.SubType, ["Mode"] = x => x.ClassificationMode, ["Nature"] = x => x.Nature,
             ["Débit"] = x => x.Debit, ["Crédit"] = x => x.Credit, ["Libellé"] = x => x.Label, ["Détails"] = x => x.Details, ["Carte différée"] = x => x.DeferredCard
         };
         var displayedRows = MultiColumnSorter.Apply(rows, _sortCriteria, selectors).ToList();
@@ -226,6 +268,9 @@ internal sealed class OperationsForm : Form
         public string Bank { get; }
         public string Account { get; }
         public DateTime Date { get; }
+        public string Type { get; set; }
+        public string SubType { get; set; }
+        public string ClassificationMode { get; set; }
         public string Nature { get; }
         public decimal Debit { get; }
         public decimal Credit { get; }
@@ -233,9 +278,10 @@ internal sealed class OperationsForm : Form
         public string Details { get; }
         public string DeferredCard { get; }
 
-        public OperationRow(BankImportResult import, BankOperation operation)
+        public OperationRow(BankImportResult import, BankOperation operation, OperationClassification? classification)
         {
             Id = operation.Id;
+            Type=classification?.Type??string.Empty; SubType=classification?.SubType??string.Empty; ClassificationMode=classification?.Mode??string.Empty;
             Bank = string.IsNullOrWhiteSpace(import.BankName) ? "—" : import.BankName;
             Account = string.IsNullOrWhiteSpace(import.AccountDisplayName) ? import.AccountReference : import.AccountDisplayName;
             Date = operation.Date; Nature = operation.Nature; Debit = operation.Debit; Credit = operation.Credit;
