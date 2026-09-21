@@ -21,10 +21,10 @@ internal sealed class ClassificationRulesForm : Form
         _grid.CellFormatting += FormatColorCell;
 
         var bar=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=62,Padding=new Padding(12),BackColor=Color.FromArgb(4,36,73)};
-        var add=Button("Ajouter",Color.FromArgb(25,130,105),110); var edit=Button("Modifier",Color.FromArgb(34,149,255),110);
+        var add=Button("Ajouter",Color.FromArgb(25,130,105),110); var duplicate=Button("Dupliquer",Color.FromArgb(196,125,32),110); var edit=Button("Modifier",Color.FromArgb(34,149,255),110);
         var del=Button("Supprimer",Color.FromArgb(190,48,58),110); var apply=Button("Appliquer maintenant",Color.FromArgb(108,76,170),165); var close=Button("Fermer",Color.FromArgb(60,75,95),100);
-        add.Click+=(_,_)=>EditRule(null); edit.Click+=(_,_)=>EditSelected(); del.Click+=(_,_)=>DeleteSelected(); apply.Click+=(_,_)=>ApplyRules(); close.Click+=(_,_)=>Close();
-        bar.Controls.AddRange(new Control[]{add,edit,del,apply,close});
+        add.Click+=(_,_)=>EditRule(null); duplicate.Click+=(_,_)=>DuplicateSelected(); edit.Click+=(_,_)=>EditSelected(); del.Click+=(_,_)=>DeleteSelected(); apply.Click+=(_,_)=>ApplyRules(); close.Click+=(_,_)=>Close();
+        bar.Controls.AddRange(new Control[]{add,duplicate,edit,del,apply,close});
         Controls.Add(_grid); Controls.Add(info); Controls.Add(title); Controls.Add(bar); Shown+=(_,_)=>Reload();
     }
 
@@ -50,6 +50,16 @@ internal sealed class ClassificationRulesForm : Form
     private void AddColumn(string header,string property,int width)=>_grid.Columns.Add(new DataGridViewTextBoxColumn{HeaderText=header,DataPropertyName=property,Width=width,AutoSizeMode=property=="SubType"?DataGridViewAutoSizeColumnMode.Fill:DataGridViewAutoSizeColumnMode.None});
     private void Reload(){_rules=BankingRepository.LoadClassificationRules();_grid.DataSource=null;_grid.DataSource=_rules;}
     private ClassificationRule? Selected()=>_grid.CurrentRow?.DataBoundItem as ClassificationRule;
+    private void DuplicateSelected()
+    {
+        var source=Selected();
+        if(source is null){MessageBox.Show("Sélectionnez une règle à dupliquer.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        var copy=new ClassificationRule{ContainsText=source.ContainsText,Type=source.Type,SubType=source.SubType,Priority=source.Priority,Enabled=source.Enabled,CellColor=source.CellColor};
+        using var form=new ClassificationRuleEditForm(copy);
+        if(form.ShowDialog(this)!=DialogResult.OK)return;
+        var rule=form.Rule;rule.Id=0;BankingRepository.SaveClassificationRule(rule);Reload();
+    }
+
     private void EditSelected(){var rule=Selected();if(rule is null){MessageBox.Show("Sélectionnez une règle.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}EditRule(rule);}
     private void EditRule(ClassificationRule? source)
     {
