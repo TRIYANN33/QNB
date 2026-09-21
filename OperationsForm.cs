@@ -153,15 +153,16 @@ internal sealed class OperationsForm : Form
     private void FormatClassificationCells(object? sender, DataGridViewCellFormattingEventArgs e)
     {
         if (e.RowIndex < 0 || _grid.Rows[e.RowIndex].DataBoundItem is not OperationRow row) return;
-        var property = _grid.Columns[e.ColumnIndex].DataPropertyName;
-        if (property != nameof(OperationRow.Type) && property != nameof(OperationRow.SubType)) return;
-        var text = (row.Type + " " + row.SubType).ToUpperInvariant();
-        if (text.Contains("SUPERMARCH")) { e.CellStyle.BackColor=Color.RoyalBlue; e.CellStyle.ForeColor=Color.White; }
-        else if (text.Contains("BOULANGER")) { e.CellStyle.BackColor=Color.White; e.CellStyle.ForeColor=Color.Black; }
-        else if (text.Contains("PRIMEUR")) { e.CellStyle.BackColor=Color.Orange; e.CellStyle.ForeColor=Color.Black; }
-        else if (text.Contains("BOUCHER")) { e.CellStyle.BackColor=Color.HotPink; e.CellStyle.ForeColor=Color.White; }
-        else if (text.Contains("CABINET MEDICALE") || text.Contains("CIPAV")) { e.CellStyle.BackColor=Color.ForestGreen; e.CellStyle.ForeColor=Color.White; }
-        else if (text.Contains("URSSAF") || text.Contains("IMPOT") || text.Contains("ASSURANCE")) { e.CellStyle.BackColor=Color.Firebrick; e.CellStyle.ForeColor=Color.White; }
+        if (_grid.Columns[e.ColumnIndex].DataPropertyName != nameof(OperationRow.Type)) return;
+        var rule=BankingRepository.LoadClassificationRules().Where(x=>x.Enabled&&!string.IsNullOrWhiteSpace(x.CellColor))
+            .OrderBy(x=>x.Priority).FirstOrDefault(x=>string.Equals(x.Type,row.Type,StringComparison.CurrentCultureIgnoreCase)&&string.Equals(x.SubType,row.SubType,StringComparison.CurrentCultureIgnoreCase));
+        if(rule is null)return;
+        try
+        {
+            var color=ColorTranslator.FromHtml(rule.CellColor);e.CellStyle.BackColor=color;
+            e.CellStyle.ForeColor=(color.R*299+color.G*587+color.B*114)/1000>140?Color.Black:Color.White;
+            e.CellStyle.SelectionBackColor=color;e.CellStyle.SelectionForeColor=e.CellStyle.ForeColor;
+        } catch { }
     }
 
     private void ClassifySelectedManually()
