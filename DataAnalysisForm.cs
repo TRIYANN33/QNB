@@ -35,7 +35,7 @@ internal sealed class DataAnalysisForm : Form
         using var wb=new XLWorkbook();var ws=wb.Worksheets.Add("Grand livre");
         var headers=new[]{"Date","Banque","Compte","Type","S_Type","Libellé","Détails","Débit","Crédit","Solde cumulé"};for(var i=0;i<headers.Length;i++)ws.Cell(1,i+1).Value=headers[i];
         decimal balance=0;var r=2;
-        foreach(var x in rows){var debit=Math.Abs(Math.Min(0m,x.Op.Debit+x.Op.Credit));var credit=Math.Max(0m,x.Op.Debit+x.Op.Credit);balance+=credit-debit;ws.Cell(r,1).Value=x.Op.Date;ws.Cell(r,2).Value=x.Bank;ws.Cell(r,3).Value=x.Account;ws.Cell(r,4).Value=x.Type;ws.Cell(r,5).Value=x.SubType;ws.Cell(r,6).Value=x.Op.Label;ws.Cell(r,7).Value=x.Op.Details;ws.Cell(r,8).Value=debit;ws.Cell(r,9).Value=credit;ws.Cell(r,10).Value=balance;r++;}
+        foreach(var x in rows){var debit=Math.Abs(Math.Min(0m,x.Op.Debit+x.Op.Credit));var credit=Math.Max(0m,x.Op.Debit+x.Op.Credit);balance+=credit-debit;ws.Cell(r,1).Value=x.Op.Date;ws.Cell(r,2).Value=x.Bank;ws.Cell(r,3).Value=x.Account;ws.Cell(r,4).Value=x.Type;ws.Cell(r,5).Value=x.SubType;ws.Cell(r,6).Value=string.IsNullOrWhiteSpace(x.Op.InterbankLabel)?x.Op.Nature:x.Op.InterbankLabel;ws.Cell(r,7).Value=x.Op.Details;ws.Cell(r,8).Value=debit;ws.Cell(r,9).Value=credit;ws.Cell(r,10).Value=balance;r++;}
         ws.Range(1,1,r-1,10).CreateTable("GrandLivre");ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(8,10).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);wb.SaveAs(save.FileName);
         _status.Text=$"Grand livre créé : {rows.Count:N0} écritures";MessageBox.Show("Le grand livre comptable a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
