@@ -87,7 +87,7 @@ public sealed class MainForm : Form
             ("⌂", "Tableau de bord"), ("▣", "Patrimoine"), ("⇩", "Importation PDF / Excel / CSV"),
             ("◫", "Sources opérations"), ("≡", "Opérations"), ("◆", "Classification"),
             ("▤", "Référentiel"), ("●", "Couleurs"), ("☷", "Listes"), ("✓", "Contrôles"),
-            ("⚙", "Règles auto"), ("▥", "Analyse des données"), ("▦", "Analyse compte / S_Type"), ("◉", "Analyser les doublons"), ("↻", "Actualiser le classeur"),
+            ("⚙", "Règles auto"), ("▥", "Analyse des données"), ("◉", "Analyser les doublons"), ("↻", "Actualiser le classeur"),
             ("↻", "Actualiser feuille"), ("?", "Mode emploi")
         };
         for (var i = 0; i < items.Length; i++) menu.Controls.Add(CreateSidebarButton(items[i].Icon, items[i].Text, i == 0));
@@ -226,7 +226,6 @@ public sealed class MainForm : Form
             else if (string.Equals(text, "Opérations", StringComparison.OrdinalIgnoreCase)) ShowOperations();
             else if (string.Equals(text, "Analyser les doublons", StringComparison.OrdinalIgnoreCase)) ShowDuplicateAnalysis();
             else if (string.Equals(text, "Analyse des données", StringComparison.OrdinalIgnoreCase)) ShowDataAnalysis();
-            else if (string.Equals(text, "Analyse compte / S_Type", StringComparison.OrdinalIgnoreCase)) ShowBankSubTypeAnalysis();
             else if (string.Equals(text, "Règles auto", StringComparison.OrdinalIgnoreCase)) ShowClassificationRules();
             else MessageBox.Show($"Module « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
@@ -328,11 +327,6 @@ public sealed class MainForm : Form
         _classificationRulesForm = new ClassificationRulesForm();
         _classificationRulesForm.FormClosed += (_, _) => _classificationRulesForm = null;
         _classificationRulesForm.Show(this);
-    }
-
-    private void ShowBankSubTypeAnalysis()
-    {
-        using var form=new BankSubTypeAnalysisForm();form.ShowDialog(this);
     }
 
     private void ShowDataAnalysis()
