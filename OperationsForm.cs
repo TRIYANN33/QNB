@@ -38,7 +38,7 @@ internal sealed class OperationsForm : Form
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 4, BackColor = BackColor };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 130F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 148F));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -50,7 +50,10 @@ internal sealed class OperationsForm : Form
         header.Controls.Add(_selectedOperationInfo, 1, 0);
         layout.Controls.Add(header, 0, 0);
 
-        var filters = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, BackColor = Color.FromArgb(4, 36, 73), Padding = new Padding(12, 9, 12, 8) };
+        var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = Color.FromArgb(4,36,73), Padding = new Padding(12,8,12,8) };
+        filters.RowStyles.Add(new RowStyle(SizeType.Percent,50F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,50F));
+        var filterRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
+        var actionRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
         _bankFilter = new ComboBox { Width = 220, DropDownStyle = ComboBoxStyle.DropDownList };
         _accountFilter = new ComboBox { Width = 270, DropDownStyle = ComboBoxStyle.DropDownList };
         _bankFilter.Items.Add("Toutes les banques");
@@ -58,14 +61,14 @@ internal sealed class OperationsForm : Form
         _bankFilter.SelectedIndex = 0;
         _bankFilter.SelectedIndexChanged += (_, _) => RefreshAccountFilter();
         _accountFilter.SelectedIndexChanged += (_, _) => ApplyFilters();
-        filters.Controls.Add(new Label { Text = "Banque", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(0, 7, 8, 0) });
-        filters.Controls.Add(_bankFilter);
-        filters.Controls.Add(new Label { Text = "Compte", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
-        filters.Controls.Add(_accountFilter);
-        filters.Controls.Add(new Label { Text = "Recherche", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
+        filterRow.Controls.Add(new Label { Text = "Banque", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(0, 7, 8, 0) });
+        filterRow.Controls.Add(_bankFilter);
+        filterRow.Controls.Add(new Label { Text = "Compte", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
+        filterRow.Controls.Add(_accountFilter);
+        filterRow.Controls.Add(new Label { Text = "Recherche", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
         _searchBox = new TextBox { Width = 240, PlaceholderText = "Rechercher dans toutes les colonnes..." };
         _searchBox.TextChanged += (_, _) => ApplyFilters();
-        filters.Controls.Add(_searchBox);
+        filterRow.Controls.Add(_searchBox);
         _periodEnabled = new CheckBox { Text = "Période", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(18,6,5,0) };
         var minDate=_allRows.Count>0?_allRows.Min(x=>x.Date).Date:DateTime.Today;
         var maxDate=_allRows.Count>0?_allRows.Max(x=>x.Date).Date:DateTime.Today;
@@ -73,32 +76,33 @@ internal sealed class OperationsForm : Form
         _periodTo = new DateTimePicker { Width=115, Format=DateTimePickerFormat.Short, Value=maxDate, Enabled=false };
         _periodEnabled.CheckedChanged += (_,_)=>{_periodFrom.Enabled=_periodEnabled.Checked;_periodTo.Enabled=_periodEnabled.Checked;ApplyFilters();};
         _periodFrom.ValueChanged += (_,_)=>ApplyFilters(); _periodTo.ValueChanged += (_,_)=>ApplyFilters();
-        filters.Controls.Add(_periodEnabled);
-        filters.Controls.Add(new Label { Text="Du",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(5,7,4,0) }); filters.Controls.Add(_periodFrom);
-        filters.Controls.Add(new Label { Text="au",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(5,7,4,0) }); filters.Controls.Add(_periodTo);
+        filterRow.Controls.Add(_periodEnabled);
+        filterRow.Controls.Add(new Label { Text="Du",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(5,7,4,0) }); filterRow.Controls.Add(_periodFrom);
+        filterRow.Controls.Add(new Label { Text="au",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(5,7,4,0) }); filterRow.Controls.Add(_periodTo);
         _withoutTypeFilter = new CheckBox { Text = "Sans Type", AutoSize = true, ForeColor = Color.FromArgb(255,205,120), Margin = new Padding(18,6,5,0) };
         _withoutTypeFilter.CheckedChanged += (_,_) => ApplyFilters();
-        filters.Controls.Add(_withoutTypeFilter);
-        filters.Controls.Add(new Label { Text = "N°", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(18,7,4,0) });
+        filterRow.Controls.Add(_withoutTypeFilter);
+        filterRow.Controls.Add(new Label { Text = "N°", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(18,7,4,0) });
         _goToNumber = new NumericUpDown { Width = 75, Minimum = 1, Maximum = Math.Max(1,_allRows.Count), Margin = new Padding(0,2,0,0) };
         var goButton = new Button { Text = "Aller", Width = 58, Height = 30, Margin = new Padding(4,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         goButton.Click += (_,_) => GoToNumber(); _goToNumber.KeyDown += (_,e)=>{if(e.KeyCode==Keys.Enter){GoToNumber();e.SuppressKeyPress=true;}};
-        filters.Controls.Add(_goToNumber); filters.Controls.Add(goButton);
+        actionRow.Controls.Add(_goToNumber); actionRow.Controls.Add(goButton);
         var sortButton = new Button { Text = "Tri 3 champs", Width = 125, Height = 30, Margin = new Padding(18, 0, 0, 0), BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         sortButton.Click += (_, _) => ConfigureSort();
-        filters.Controls.Add(sortButton);
+        actionRow.Controls.Add(sortButton);
         _deleteButton = new Button { Text = "✕  Supprimer cochées", Width = 180, Height = 34, Margin = new Padding(12, 0, 0, 0), BackColor = Color.FromArgb(190, 48, 58), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
         _deleteButton.FlatAppearance.BorderColor = Color.FromArgb(245, 115, 120);
         _deleteButton.FlatAppearance.BorderSize = 1;
         _deleteButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(220, 58, 68);
         _deleteButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(155, 35, 45);
         _deleteButton.Click += (_, _) => DeleteCheckedOperations();
-        filters.Controls.Add(_deleteButton);
+        actionRow.Controls.Add(_deleteButton);
         var manualButton = new Button { Text = "Typage manuel", Width = 130, Height = 34, Margin = new Padding(12,0,0,0), BackColor = Color.FromArgb(108,76,170), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        manualButton.Click += (_, _) => ClassifySelectedManually(); filters.Controls.Add(manualButton);
+        manualButton.Click += (_, _) => ClassifySelectedManually(); actionRow.Controls.Add(manualButton);
         var autoButton = new Button { Text = "Typage auto", Width = 115, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(25,130,105), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        autoButton.Click += (_, _) => ApplyAutomaticTyping(); filters.Controls.Add(autoButton);
+        autoButton.Click += (_, _) => ApplyAutomaticTyping(); actionRow.Controls.Add(autoButton);
 
+        filters.Controls.Add(filterRow,0,0); filters.Controls.Add(actionRow,0,1);
         layout.Controls.Add(filters, 0, 1);
 
         var summary = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Color.FromArgb(7, 43, 82), Padding = new Padding(14, 5, 14, 5) };
