@@ -17,7 +17,7 @@ internal sealed class ClassificationRulesForm : Form
         _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false; _grid.ReadOnly=true; _grid.RowHeadersVisible=false; _grid.SelectionMode=DataGridViewSelectionMode.FullRowSelect; _grid.MultiSelect=false;
         _grid.EnableHeadersVisualStyles=false; _grid.ColumnHeadersDefaultCellStyle.BackColor=Color.FromArgb(8,73,137); _grid.ColumnHeadersDefaultCellStyle.ForeColor=Color.White;
         _grid.DefaultCellStyle.BackColor=Color.FromArgb(7,43,82); _grid.DefaultCellStyle.ForeColor=Color.White; _grid.DefaultCellStyle.SelectionBackColor=Color.FromArgb(18,82,146);
-        AddColumn("Actif","Enabled",60); AddColumn("Priorité","Priority",70); AddColumn("Si le texte contient","ContainsText",220); AddColumn("Type","Type",180); AddColumn("S_Type","SubType",200);
+        AddColumn("Actif","Enabled",60); AddColumn("Priorité","Priority",70); AddColumn("Si le texte contient","ContainsText",220); AddColumn("Type","Type",160); AddColumn("S_Type","SubType",180); AddColumn("Couleur","CellColor",110);
 
         var bar=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=62,Padding=new Padding(12),BackColor=Color.FromArgb(4,36,73)};
         var add=Button("Ajouter",Color.FromArgb(25,130,105),110); var edit=Button("Modifier",Color.FromArgb(34,149,255),110);
@@ -51,20 +51,29 @@ internal sealed class ClassificationRulesForm : Form
 
 internal sealed class ClassificationRuleEditForm : Form
 {
-    private readonly TextBox _contains=new(),_type=new(),_subType=new(); private readonly NumericUpDown _priority=new(); private readonly CheckBox _enabled=new();
+    private readonly TextBox _contains=new(),_type=new(),_subType=new(),_color=new(); private readonly Button _colorButton=new(); private readonly NumericUpDown _priority=new(); private readonly CheckBox _enabled=new();
     private readonly long _id;
-    public ClassificationRule Rule=>new(){Id=_id,ContainsText=_contains.Text.Trim(),Type=_type.Text.Trim(),SubType=_subType.Text.Trim(),Priority=(int)_priority.Value,Enabled=_enabled.Checked};
+    public ClassificationRule Rule=>new(){Id=_id,ContainsText=_contains.Text.Trim(),Type=_type.Text.Trim(),SubType=_subType.Text.Trim(),Priority=(int)_priority.Value,Enabled=_enabled.Checked,CellColor=_color.Text};
 
     public ClassificationRuleEditForm(ClassificationRule? rule)
     {
-        _id=rule?.Id??0; Text=rule is null?"QNB - Nouvelle règle":"QNB - Modifier la règle";StartPosition=FormStartPosition.CenterParent;ClientSize=new Size(520,330);FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",9.5F);
+        _id=rule?.Id??0; Text=rule is null?"QNB - Nouvelle règle":"QNB - Modifier la règle";StartPosition=FormStartPosition.CenterParent;ClientSize=new Size(520,385);FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",9.5F);
         AddLabel("Si le texte contient",25,30);_contains.SetBounds(180,26,305,28);_contains.Text=rule?.ContainsText??"";Controls.Add(_contains);
         AddLabel("Type",25,82);_type.SetBounds(180,78,305,28);_type.Text=rule?.Type??"";Controls.Add(_type);
         AddLabel("S_Type",25,134);_subType.SetBounds(180,130,305,28);_subType.Text=rule?.SubType??"";Controls.Add(_subType);
-        AddLabel("Priorité",25,186);_priority.SetBounds(180,182,100,28);_priority.Minimum=1;_priority.Maximum=9999;_priority.Value=rule?.Priority??100;Controls.Add(_priority);
-        _enabled.Text="Règle active";_enabled.SetBounds(310,184,150,28);_enabled.Checked=rule?.Enabled??true;_enabled.ForeColor=Color.White;Controls.Add(_enabled);
-        var save=new Button{Text="Enregistrer",Left=340,Top=250,Width=145,Height=36,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        AddLabel("Couleur cellule",25,186);_color.SetBounds(180,182,190,28);_color.ReadOnly=true;_color.Text=rule?.CellColor??"";Controls.Add(_color);
+        _colorButton.Text="Choisir...";_colorButton.SetBounds(380,180,105,32);_colorButton.Click+=(_,_)=>ChooseColor();Controls.Add(_colorButton);
+        AddLabel("Priorité",25,228);_priority.SetBounds(180,224,100,28);_priority.Minimum=1;_priority.Maximum=9999;_priority.Value=rule?.Priority??100;Controls.Add(_priority);
+        _enabled.Text="Règle active";_enabled.SetBounds(310,226,150,28);_enabled.Checked=rule?.Enabled??true;_enabled.ForeColor=Color.White;Controls.Add(_enabled);
+        var save=new Button{Text="Enregistrer",Left=340,Top=305,Width=145,Height=36,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
         var cancel=new Button{Text="Annuler",Left=210,Top=250,Width=115,Height=36,DialogResult=DialogResult.Cancel};save.Click+=(_,_)=>Save();Controls.Add(save);Controls.Add(cancel);AcceptButton=save;CancelButton=cancel;
+    }
+    private void ChooseColor()
+    {
+        using var picker=new ColorDialog{FullOpen=true};
+        if(!string.IsNullOrWhiteSpace(_color.Text)){try{picker.Color=ColorTranslator.FromHtml(_color.Text);}catch{}}
+        if(picker.ShowDialog(this)!=DialogResult.OK)return;
+        _color.Text=ColorTranslator.ToHtml(picker.Color);_color.BackColor=picker.Color;_color.ForeColor=(picker.Color.R*299+picker.Color.G*587+picker.Color.B*114)/1000>140?Color.Black:Color.White;
     }
     private void AddLabel(string text,int x,int y)=>Controls.Add(new Label{Text=text,AutoSize=true,Location=new Point(x,y),ForeColor=Color.FromArgb(183,207,229)});
     private void Save(){if(string.IsNullOrWhiteSpace(_contains.Text)||string.IsNullOrWhiteSpace(_type.Text)){MessageBox.Show("Le texte recherché et le Type sont obligatoires.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}DialogResult=DialogResult.OK;Close();}
