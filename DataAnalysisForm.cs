@@ -31,15 +31,20 @@ internal sealed class DataAnalysisForm : Form
         var cls=BankingRepository.LoadOperationClassifications();
         var rows=BankingRepository.LoadImports().SelectMany(i=>i.Operations.Select(o=>new{Import=i,Op=o}))
             .Where(x=>x.Op.Date.Date>=_from.Value.Date&&x.Op.Date.Date<=_to.Value.Date)
-            .Select(x=>{cls.TryGetValue(x.Op.Id,out var k);return new{Bank=string.IsNullOrWhiteSpace(x.Import.BankName)?"—":x.Import.BankName,Account=string.IsNullOrWhiteSpace(x.Import.AccountDisplayName)?x.Import.AccountReference:x.Import.AccountDisplayName,Op=x.Op,SubType=string.IsNullOrWhiteSpace(k?.SubType)?"Non typé":k.SubType};}).ToList();
+            .Select(x=>{cls.TryGetValue(x.Op.Id,out var k);return new{Bank=string.IsNullOrWhiteSpace(x.Import.BankName)?"—":x.Import.BankName,Account=string.IsNullOrWhiteSpace(x.Import.AccountDisplayName)?x.Import.AccountReference:x.Import.AccountDisplayName,Op=x.Op,Type=string.IsNullOrWhiteSpace(k?.Type)?"Non typé":k.Type,SubType=string.IsNullOrWhiteSpace(k?.SubType)?"Non typé":k.SubType};}).ToList();
         if(rows.Count==0){MessageBox.Show("Aucune opération sur cette période.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
         using var save=new SaveFileDialog{Filter="Classeur Excel (*.xlsx)|*.xlsx",FileName=$"QNB_Journal_{_from.Value:yyyyMMdd}_{_to.Value:yyyyMMdd}.xlsx"};if(save.ShowDialog(this)!=DialogResult.OK)return;
         using var wb=new XLWorkbook();var ws=wb.Worksheets.Add("Journal");
-        var headers=new[]{"Banque","Compte","Mois","S_Type","Dépenses","Recettes","Montant total"};for(var i=0;i<headers.Length;i++)ws.Cell(1,i+1).Value=headers[i];
-        var groups=rows.GroupBy(x=>new{x.Bank,x.Account,Year=x.Op.Date.Year,Month=x.Op.Date.Month,x.SubType}).OrderBy(x=>x.Key.Bank).ThenBy(x=>x.Key.Account).ThenBy(x=>x.Key.Year).ThenBy(x=>x.Key.Month).ThenBy(x=>x.Key.SubType).ToList();var r=2;
-        foreach(var g in groups){var dep=g.Sum(x=>Math.Abs(Math.Min(0m,x.Op.Amount)));var rec=g.Sum(x=>Math.Max(0m,x.Op.Amount));ws.Cell(r,1).Value=g.Key.Bank;ws.Cell(r,2).Value=g.Key.Account;ws.Cell(r,3).Value=new DateTime(g.Key.Year,g.Key.Month,1);ws.Cell(r,4).Value=g.Key.SubType;ws.Cell(r,5).Value=dep;ws.Cell(r,6).Value=rec;ws.Cell(r,7).Value=rec-dep;r++;}
-        ws.Range(1,1,r-1,7).CreateTable("JournalMensuel");ws.Column(3).Style.DateFormat.Format="mmmm yyyy";ws.Columns(5,7).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);
-        wb.SaveAs(save.FileName);_status.Text=$"Journal créé : {groups.Count:N0} lignes • {rows.Count:N0} opérations";MessageBox.Show("Le journal mensuel par compte et S_Type a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
+        var headers=new[]{"Banque","Compte","Mois","Type","S_Type","Débit","Crédit","Solde"};for(var i=0;i<headers.Length;i++)ws.Cell(1,i+1).Value=headers[i];
+        var groups=rows.GroupBy(x=>new{x.Bank,x.Account,Year=x.Op.Date.Year,Month=x.Op.Date.Month,x.Type,x.SubType})
+            .OrderBy(x=>x.Key.Bank).ThenBy(x=>x.Key.Account).ThenBy(x=>x.Key.Year).ThenBy(x=>x.Key.Month).ThenBy(x=>x.Key.Type).ThenBy(x=>x.Key.SubType).ToList();var r=2;
+        foreach(var g in groups)
+        {
+            var debit=g.Sum(x=>Math.Abs(Math.Min(0m,x.Op.Amount)));var credit=g.Sum(x=>Math.Max(0m,x.Op.Amount));var balance=credit-debit;
+            ws.Cell(r,1).Value=g.Key.Bank;ws.Cell(r,2).Value=g.Key.Account;ws.Cell(r,3).Value=new DateTime(g.Key.Year,g.Key.Month,1);ws.Cell(r,4).Value=g.Key.Type;ws.Cell(r,5).Value=g.Key.SubType;ws.Cell(r,6).Value=debit;ws.Cell(r,7).Value=credit;ws.Cell(r,8).Value=balance;r++;
+        }
+        ws.Range(1,1,r-1,8).CreateTable("JournalMensuel");ws.Column(3).Style.DateFormat.Format="mmmm yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);
+        wb.SaveAs(save.FileName);_status.Text=$"Journal créé : {groups.Count:N0} lignes Type / S_Type • {rows.Count:N0} opérations";MessageBox.Show("Le journal par compte, mois, Type et S_Type a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 
     private void ExportLedger()
