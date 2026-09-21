@@ -68,7 +68,7 @@ internal sealed class ClassificationRulesForm : Form
 
 internal sealed class ClassificationRuleEditForm : Form
 {
-    private readonly TextBox _contains=new(),_type=new(),_subType=new(),_color=new(); private readonly Button _colorButton=new(); private readonly NumericUpDown _priority=new(); private readonly CheckBox _enabled=new();
+    private readonly TextBox _contains=new(),_color=new(); private readonly ComboBox _type=new(),_subType=new(); private readonly Button _colorButton=new(); private readonly NumericUpDown _priority=new(); private readonly CheckBox _enabled=new();
     private readonly long _id;
     public ClassificationRule Rule=>new(){Id=_id,ContainsText=_contains.Text.Trim(),Type=_type.Text.Trim(),SubType=_subType.Text.Trim(),Priority=(int)_priority.Value,Enabled=_enabled.Checked,CellColor=_color.Text};
 
@@ -76,8 +76,9 @@ internal sealed class ClassificationRuleEditForm : Form
     {
         _id=rule?.Id??0; Text=rule is null?"QNB - Nouvelle règle":"QNB - Modifier la règle";StartPosition=FormStartPosition.CenterParent;ClientSize=new Size(520,385);FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",9.5F);
         AddLabel("Si le texte contient",25,30);_contains.SetBounds(180,26,305,28);_contains.Text=rule?.ContainsText??"";Controls.Add(_contains);
-        AddLabel("Type",25,82);_type.SetBounds(180,78,305,28);_type.Text=rule?.Type??"";Controls.Add(_type);
-        AddLabel("S_Type",25,134);_subType.SetBounds(180,130,305,28);_subType.Text=rule?.SubType??"";Controls.Add(_subType);
+        AddLabel("Type",25,82);_type.SetBounds(180,78,305,28);_type.DropDownStyle=ComboBoxStyle.DropDown;Controls.Add(_type);
+        AddLabel("S_Type",25,134);_subType.SetBounds(180,130,305,28);_subType.DropDownStyle=ComboBoxStyle.DropDown;Controls.Add(_subType);
+        LoadTypingLists(rule);
         AddLabel("Couleur cellule",25,186);_color.SetBounds(180,182,190,28);_color.ReadOnly=true;_color.Text=rule?.CellColor??"";Controls.Add(_color);ApplyColorPreview();
         _colorButton.Text="Choisir...";_colorButton.SetBounds(380,180,105,32);_colorButton.Click+=(_,_)=>ChooseColor();Controls.Add(_colorButton);
         AddLabel("Priorité",25,228);_priority.SetBounds(180,224,100,28);_priority.Minimum=1;_priority.Maximum=9999;_priority.Value=rule?.Priority??100;Controls.Add(_priority);
@@ -85,6 +86,17 @@ internal sealed class ClassificationRuleEditForm : Form
         var save=new Button{Text="Enregistrer",Left=340,Top=305,Width=145,Height=36,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
         var cancel=new Button{Text="Annuler",Left=210,Top=250,Width=115,Height=36,DialogResult=DialogResult.Cancel};save.Click+=(_,_)=>Save();Controls.Add(save);Controls.Add(cancel);AcceptButton=save;CancelButton=cancel;
     }
+    private void LoadTypingLists(ClassificationRule? current)
+    {
+        var rules=BankingRepository.LoadClassificationRules();
+        foreach(var value in rules.Select(x=>x.Type).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(x=>x))
+            _type.Items.Add(value);
+        foreach(var value in rules.Select(x=>x.SubType).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(x=>x))
+            _subType.Items.Add(value);
+        _type.Text=current?.Type??string.Empty;
+        _subType.Text=current?.SubType??string.Empty;
+    }
+
     private void ChooseColor()
     {
         using var picker=new ColorDialog{FullOpen=true};
