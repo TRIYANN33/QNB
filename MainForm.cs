@@ -225,6 +225,7 @@ public sealed class MainForm : Form
             else if (string.Equals(text, "Sources opérations", StringComparison.OrdinalIgnoreCase)) ShowOperationSources();
             else if (string.Equals(text, "Opérations", StringComparison.OrdinalIgnoreCase)) ShowOperations();
             else if (string.Equals(text, "Analyser les doublons", StringComparison.OrdinalIgnoreCase)) ShowDuplicateAnalysis();
+            else if (string.Equals(text, "Règles auto", StringComparison.OrdinalIgnoreCase)) ShowClassificationRules();
             else MessageBox.Show($"Module « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         return button;
@@ -309,6 +310,12 @@ public sealed class MainForm : Form
         using var form = new OperationSourcesForm();
         form.ShowDialog(this);
         RefreshDashboardStats();
+    }
+
+    private void ShowClassificationRules()
+    {
+        using var form = new ClassificationRulesForm();
+        form.ShowDialog(this);
     }
 
     private void ShowDuplicateAnalysis()
