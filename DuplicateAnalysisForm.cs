@@ -49,6 +49,7 @@ internal sealed class DuplicateAnalysisForm : Form
     private readonly Label _footerSummary;
     private readonly ComboBox _accountFilter;
     private readonly TextBox _selectedOperationInfo;
+    private readonly TextBox _selectedOperationInfo2;
     private bool _groupCheckedRows;
     private List<DuplicateCandidate> _candidates = new();
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
@@ -56,13 +57,14 @@ internal sealed class DuplicateAnalysisForm : Form
     public DuplicateAnalysisForm()
     {
         Text="QNB - Analyse globale des doublons"; StartPosition=FormStartPosition.CenterParent; Size=new Size(1500,800); MinimumSize=new Size(1100,620); BackColor=Color.FromArgb(3,23,49); ForeColor=Color.White; Font=new Font("Segoe UI",9F);
-        var header=new Panel{Dock=DockStyle.Top,Height=82,Padding=new Padding(18,12,18,8),BackColor=Color.FromArgb(4,36,73)};
+        var header=new Panel{Dock=DockStyle.Top,Height=112,Padding=new Padding(18,12,18,8),BackColor=Color.FromArgb(4,36,73)};
         header.Controls.Add(new Label{Text="Analyse globale des doublons",AutoSize=true,Font=new Font("Segoe UI Semibold",16F,FontStyle.Bold),ForeColor=Color.White,Location=new Point(18,10)});
-        _selectedOperationInfo=new TextBox{ReadOnly=true,Width=720,Height=28,Location=new Point(330,10),BackColor=Color.FromArgb(7,43,82),ForeColor=Color.White,BorderStyle=BorderStyle.FixedSingle,Font=new Font("Segoe UI Semibold",9.5F),PlaceholderText="Sélectionnez une opération : Date • Libellé • Détail"};header.Controls.Add(_selectedOperationInfo);
-        header.Controls.Add(new Label{Text="Toutes les opérations impliquées dans un doublon sont affichées séparément • cochez celles que vous souhaitez supprimer",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Location=new Point(20,44)});
-        _summary=new Label{AutoSize=true,Anchor=AnchorStyles.Top|AnchorStyles.Right,ForeColor=Color.FromArgb(58,196,187),Font=new Font("Segoe UI Semibold",10F,FontStyle.Bold),Location=new Point(1150,28)}; header.Controls.Add(_summary);
-        header.Controls.Add(new Label{Text="Compte :",AutoSize=true,ForeColor=Color.White,Location=new Point(620,47)});
-        _accountFilter=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=300,Location=new Point(680,43)};
+        _selectedOperationInfo=new TextBox{ReadOnly=true,Width=720,Height=28,Location=new Point(330,8),BackColor=Color.FromArgb(7,43,82),ForeColor=Color.White,BorderStyle=BorderStyle.FixedSingle,Font=new Font("Segoe UI Semibold",9.5F),PlaceholderText="Opération 1 : Date • Libellé • Détail"};header.Controls.Add(_selectedOperationInfo);
+        _selectedOperationInfo2=new TextBox{ReadOnly=true,Width=720,Height=28,Location=new Point(330,39),BackColor=Color.FromArgb(7,43,82),ForeColor=Color.White,BorderStyle=BorderStyle.FixedSingle,Font=new Font("Segoe UI Semibold",9.5F),PlaceholderText="Opération 2 : Date • Libellé • Détail"};header.Controls.Add(_selectedOperationInfo2);
+        header.Controls.Add(new Label{Text="Toutes les opérations impliquées dans un doublon sont affichées séparément • cochez celles que vous souhaitez supprimer",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Location=new Point(20,76)});
+        _summary=new Label{AutoSize=true,Anchor=AnchorStyles.Top|AnchorStyles.Right,ForeColor=Color.FromArgb(58,196,187),Font=new Font("Segoe UI Semibold",10F,FontStyle.Bold),Location=new Point(1150,44)}; header.Controls.Add(_summary);
+        header.Controls.Add(new Label{Text="Compte :",AutoSize=true,ForeColor=Color.White,Location=new Point(620,78)});
+        _accountFilter=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=300,Location=new Point(680,74)};
         _accountFilter.SelectedIndexChanged+=(_,_)=>RenderCandidates(); header.Controls.Add(_accountFilter);
 
         _grid=new DataGridView{Dock=DockStyle.Fill,ReadOnly=false,AllowUserToAddRows=false,AllowUserToDeleteRows=false,AutoGenerateColumns=false,BackgroundColor=Color.FromArgb(7,42,78),SelectionMode=DataGridViewSelectionMode.FullRowSelect,MultiSelect=true,RowHeadersVisible=false,EnableHeadersVisualStyles=false};
@@ -158,6 +160,7 @@ internal sealed class DuplicateAnalysisForm : Form
     private void GroupCheckedRows()
     {
         if(_groupCheckedRows)return;
+        UpdateSelectedOperationInfo();
         var checkedIds=_grid.Rows.Cast<DataGridViewRow>().Where(r=>Convert.ToBoolean(r.Cells["Choix"].Value??false)).Select(r=>Convert.ToInt64(r.Cells["OperationId"].Value)).ToList();
         if(checkedIds.Count!=2)return;
         var first=_grid.Rows.Cast<DataGridViewRow>().First(r=>Convert.ToInt64(r.Cells["OperationId"].Value)==checkedIds[0]);
@@ -177,11 +180,11 @@ internal sealed class DuplicateAnalysisForm : Form
 
     private void UpdateSelectedOperationInfo()
     {
-        if(_grid.CurrentRow is null){_selectedOperationInfo.Text=string.Empty;return;}
-        var date=Convert.ToString(_grid.CurrentRow.Cells["Date"].Value)??string.Empty;
-        var label=Convert.ToString(_grid.CurrentRow.Cells["Libellé"].Value)??string.Empty;
-        var details=Convert.ToString(_grid.CurrentRow.Cells["Détails"].Value)??string.Empty;
-        _selectedOperationInfo.Text=$"{date}   •   {label}   •   {(string.IsNullOrWhiteSpace(details)?"—":details)}";
+        var rows=_grid.Rows.Cast<DataGridViewRow>().Where(r=>Convert.ToBoolean(r.Cells["Choix"].Value??false)).Take(2).ToList();
+        if(rows.Count==0 && _grid.CurrentRow is not null)rows.Add(_grid.CurrentRow);
+        string Info(DataGridViewRow row){var date=Convert.ToString(row.Cells["Date"].Value)??string.Empty;var label=Convert.ToString(row.Cells["Libellé"].Value)??string.Empty;var details=Convert.ToString(row.Cells["Détails"].Value)??string.Empty;return $"{date}   •   {label}   •   {(string.IsNullOrWhiteSpace(details)?"—":details)}";}
+        _selectedOperationInfo.Text=rows.Count>0?Info(rows[0]):string.Empty;
+        _selectedOperationInfo2.Text=rows.Count>1?Info(rows[1]):string.Empty;
     }
 
     private void DeleteChecked()
