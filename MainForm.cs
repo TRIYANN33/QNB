@@ -334,10 +334,24 @@ public sealed class MainForm : Form
         form.ShowDialog(this);
     }
 
+    private OperationsForm? _operationsForm;
+
     private void ShowOperations()
     {
-        using var form = new OperationsForm();
-        form.ShowDialog(this);
+        if (_operationsForm is not null && !_operationsForm.IsDisposed)
+        {
+            _operationsForm.BringToFront();
+            _operationsForm.Activate();
+            return;
+        }
+
+        _operationsForm = new OperationsForm();
+        _operationsForm.FormClosed += (_, _) =>
+        {
+            _operationsForm = null;
+            RefreshDashboardStats();
+        };
+        _operationsForm.Show(this);
     }
 
     private void RefreshDashboardStats()
