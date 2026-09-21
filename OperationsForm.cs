@@ -8,6 +8,9 @@ internal sealed class OperationsForm : Form
     private readonly ComboBox _bankFilter;
     private readonly ComboBox _accountFilter;
     private readonly TextBox _searchBox;
+    private readonly DateTimePicker _periodFrom;
+    private readonly DateTimePicker _periodTo;
+    private readonly CheckBox _periodEnabled;
     private readonly List<OperationRow> _allRows;
     private readonly Button _deleteButton;
     private readonly Label _countLabel;
@@ -34,7 +37,7 @@ internal sealed class OperationsForm : Form
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 4, BackColor = BackColor };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 130F));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -62,6 +65,16 @@ internal sealed class OperationsForm : Form
         _searchBox = new TextBox { Width = 240, PlaceholderText = "Rechercher dans toutes les colonnes..." };
         _searchBox.TextChanged += (_, _) => ApplyFilters();
         filters.Controls.Add(_searchBox);
+        _periodEnabled = new CheckBox { Text = "Période", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(18,6,5,0) };
+        var minDate=_allRows.Count>0?_allRows.Min(x=>x.Date).Date:DateTime.Today;
+        var maxDate=_allRows.Count>0?_allRows.Max(x=>x.Date).Date:DateTime.Today;
+        _periodFrom = new DateTimePicker { Width=115, Format=DateTimePickerFormat.Short, Value=minDate, Enabled=false };
+        _periodTo = new DateTimePicker { Width=115, Format=DateTimePickerFormat.Short, Value=maxDate, Enabled=false };
+        _periodEnabled.CheckedChanged += (_,_)=>{_periodFrom.Enabled=_periodEnabled.Checked;_periodTo.Enabled=_periodEnabled.Checked;ApplyFilters();};
+        _periodFrom.ValueChanged += (_,_)=>ApplyFilters(); _periodTo.ValueChanged += (_,_)=>ApplyFilters();
+        filters.Controls.Add(_periodEnabled);
+        filters.Controls.Add(new Label { Text="Du",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(5,7,4,0) }); filters.Controls.Add(_periodFrom);
+        filters.Controls.Add(new Label { Text="au",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(5,7,4,0) }); filters.Controls.Add(_periodTo);
         filters.Controls.Add(new Label { Text = "N°", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(18,7,4,0) });
         _goToNumber = new NumericUpDown { Width = 75, Minimum = 1, Maximum = Math.Max(1,_allRows.Count), Margin = new Padding(0,2,0,0) };
         var goButton = new Button { Text = "Aller", Width = 58, Height = 30, Margin = new Padding(4,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
@@ -269,6 +282,12 @@ internal sealed class OperationsForm : Form
         IEnumerable<OperationRow> rows = _allRows;
         if (!string.IsNullOrWhiteSpace(bank) && bank != "Toutes les banques") rows = rows.Where(x => x.Bank == bank);
         if (!string.IsNullOrWhiteSpace(account) && account != "Tous les comptes") rows = rows.Where(x => x.Account == account);
+        if (_periodEnabled.Checked)
+        {
+            var from=_periodFrom.Value.Date; var to=_periodTo.Value.Date;
+            if(from>to)(from,to)=(to,from);
+            rows=rows.Where(x=>x.Date.Date>=from&&x.Date.Date<=to);
+        }
 
         var search = _searchBox.Text.Trim();
         if (!string.IsNullOrWhiteSpace(search))
