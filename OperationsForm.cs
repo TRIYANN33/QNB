@@ -13,6 +13,7 @@ internal sealed class OperationsForm : Form
     private readonly Label _countLabel;
     private readonly Label _totalLabel;
     private readonly TextBox _selectedOperationInfo;
+    private readonly NumericUpDown _goToNumber;
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
 
     public OperationsForm()
@@ -61,6 +62,11 @@ internal sealed class OperationsForm : Form
         _searchBox = new TextBox { Width = 240, PlaceholderText = "Rechercher dans toutes les colonnes..." };
         _searchBox.TextChanged += (_, _) => ApplyFilters();
         filters.Controls.Add(_searchBox);
+        filters.Controls.Add(new Label { Text = "N°", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(18,7,4,0) });
+        _goToNumber = new NumericUpDown { Width = 75, Minimum = 1, Maximum = Math.Max(1,_allRows.Count), Margin = new Padding(0,2,0,0) };
+        var goButton = new Button { Text = "Aller", Width = 58, Height = 30, Margin = new Padding(4,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        goButton.Click += (_,_) => GoToNumber(); _goToNumber.KeyDown += (_,e)=>{if(e.KeyCode==Keys.Enter){GoToNumber();e.SuppressKeyPress=true;}};
+        filters.Controls.Add(_goToNumber); filters.Controls.Add(goButton);
         var sortButton = new Button { Text = "Tri 3 champs", Width = 125, Height = 30, Margin = new Padding(18, 0, 0, 0), BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         sortButton.Click += (_, _) => ConfigureSort();
         filters.Controls.Add(sortButton);
@@ -101,6 +107,7 @@ internal sealed class OperationsForm : Form
         _grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(18, 82, 146);
         _grid.DefaultCellStyle.SelectionForeColor = Color.White;
 
+        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "N°", DataPropertyName = nameof(OperationRow.Number), Width = 55, FillWeight = 42, ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Suppr.", DataPropertyName = nameof(OperationRow.DeleteSelected), Width = 55, FillWeight = 42, ReadOnly = false, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Banque", DataPropertyName = nameof(OperationRow.Bank), FillWeight = 90, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Compte", DataPropertyName = nameof(OperationRow.Account), FillWeight = 110, SortMode = DataGridViewColumnSortMode.NotSortable });
@@ -124,6 +131,20 @@ internal sealed class OperationsForm : Form
 
         Controls.Add(layout);
         RefreshAccountFilter();
+    }
+
+    private void GoToNumber()
+    {
+        var number=(int)_goToNumber.Value;
+        foreach(DataGridViewRow gridRow in _grid.Rows)
+        {
+            if(gridRow.DataBoundItem is OperationRow row && row.Number==number)
+            {
+                _grid.ClearSelection();gridRow.Selected=true;_grid.CurrentCell=gridRow.Cells.Cast<DataGridViewCell>().FirstOrDefault(x=>x.Visible);
+                _grid.FirstDisplayedScrollingRowIndex=gridRow.Index;UpdateSelectedOperationInfo();return;
+            }
+        }
+        MessageBox.Show($"Le numéro {number} n'est pas présent dans la sélection actuelle.","QNB - Opérations",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 
     private void UpdateSelectedOperationInfo()
@@ -272,7 +293,9 @@ internal sealed class OperationsForm : Form
             ["Débit"] = x => x.Debit, ["Crédit"] = x => x.Credit, ["Libellé"] = x => x.Label, ["Détails"] = x => x.Details, ["Carte différée"] = x => x.DeferredCard
         };
         var displayedRows = MultiColumnSorter.Apply(rows, _sortCriteria, selectors).ToList();
-        _grid.DataSource = displayedRows;
+        for(var i=0;i<displayedRows.Count;i++)displayedRows[i].Number=i+1;
+        _grid.DataSource = null; _grid.DataSource = displayedRows;
+        _goToNumber.Maximum=Math.Max(1,displayedRows.Count);if(_goToNumber.Value>_goToNumber.Maximum)_goToNumber.Value=_goToNumber.Maximum;
 
         var culture = CultureInfo.GetCultureInfo("fr-FR");
         var total = displayedRows.Sum(x => x.Credit + x.Debit);
@@ -286,6 +309,7 @@ internal sealed class OperationsForm : Form
     private sealed class OperationRow
     {
         public long Id { get; }
+        public int Number { get; set; }
         public bool DeleteSelected { get; set; }
         public string Bank { get; }
         public string Account { get; }
