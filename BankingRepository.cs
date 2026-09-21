@@ -18,6 +18,8 @@ internal sealed class BankAccountProfile
         : $"{BankName} — {AccountName}";
 }
 internal sealed class BankingConfiguration { public List<BankAccountProfile> Accounts { get; set; } = new(); }
+internal sealed class OperationClassification { public long OperationId { get; set; } public string Type { get; set; } = string.Empty; public string SubType { get; set; } = string.Empty; public string Mode { get; set; } = string.Empty; }
+internal sealed class ClassificationRule { public long Id { get; set; } public string ContainsText { get; set; } = string.Empty; public string Type { get; set; } = string.Empty; public string SubType { get; set; } = string.Empty; public int Priority { get; set; } = 100; public bool Enabled { get; set; } = true; }
 internal sealed class DashboardBankingStats { public int Documents { get; set; } public int Operations { get; set; } public int Accounts { get; set; } public decimal DeferredCardAmount { get; set; } }
 
 internal static class BankingRepository
@@ -37,9 +39,12 @@ internal static class BankingRepository
 CREATE TABLE IF NOT EXISTS Imports (Id INTEGER PRIMARY KEY AUTOINCREMENT,SourceFile TEXT NOT NULL,AccountId TEXT NULL,BankName TEXT NOT NULL,AccountDisplayName TEXT NOT NULL,AccountReference TEXT NOT NULL,AccountHolder TEXT NOT NULL,AccountType INTEGER NOT NULL,BalanceDate TEXT NULL,Balance REAL NULL,Currency TEXT NOT NULL,ImportedAt TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS Operations (Id INTEGER PRIMARY KEY AUTOINCREMENT,ImportId INTEGER NOT NULL,OperationDate TEXT NOT NULL,Nature TEXT NOT NULL,Debit REAL NOT NULL,Credit REAL NOT NULL,Currency TEXT NOT NULL,ValueDate TEXT NULL,InterbankLabel TEXT NOT NULL,Details TEXT NOT NULL,IsDeferredCardSummary INTEGER NOT NULL,FOREIGN KEY (ImportId) REFERENCES Imports(Id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS Meta (Key TEXT PRIMARY KEY, Value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS ClassificationRules (Id INTEGER PRIMARY KEY AUTOINCREMENT,ContainsText TEXT NOT NULL,Type TEXT NOT NULL,SubType TEXT NOT NULL,Priority INTEGER NOT NULL DEFAULT 100,Enabled INTEGER NOT NULL DEFAULT 1);
 CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREATE INDEX IF NOT EXISTS IX_Imports_AccountId ON Imports(AccountId);";
         command.ExecuteNonQuery();
         EnsureSourceDateColumn(connection);
+        EnsureOperationClassificationColumns(connection);
+        EnsureDefaultClassificationRules(connection);
         ApplyOneTimeReset(connection);
     }
 
@@ -62,6 +67,51 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
         using var alter = connection.CreateCommand();
         alter.CommandText = "ALTER TABLE Accounts ADD COLUMN SourceDate TEXT NULL;";
         alter.ExecuteNonQuery();
+    }
+
+    private static void EnsureOperationClassificationColumns(SqliteConnection connection)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var info = connection.CreateCommand())
+        {
+            info.CommandText = "PRAGMA table_info(Operations);";
+            using var reader = info.ExecuteReader();
+            while (reader.Read()) columns.Add(reader.GetString(1));
+        }
+        foreach (var definition in new[] { "OperationType TEXT NOT NULL DEFAULT ''", "OperationSubType TEXT NOT NULL DEFAULT ''", "ClassificationMode TEXT NOT NULL DEFAULT ''" })
+        {
+            var name = definition.Split(' ')[0];
+            if (columns.Contains(name)) continue;
+            using var alter = connection.CreateCommand();
+            alter.CommandText = $"ALTER TABLE Operations ADD COLUMN {definition};";
+            alter.ExecuteNonQuery();
+        }
+    }
+
+    private static void EnsureDefaultClassificationRules(SqliteConnection connection)
+    {
+        using var count = connection.CreateCommand();
+        count.CommandText = "SELECT COUNT(*) FROM ClassificationRules";
+        if (Convert.ToInt64(count.ExecuteScalar(), CultureInfo.InvariantCulture) > 0) return;
+        var defaults = new (string Text,string Type,string SubType,int Priority)[]
+        {
+            ("AUCHAN","Alimentaire","Supermarché",10),
+            ("BOULANGERIE","Alimentaire","Boulangerie",20),
+            ("PRIMEUR ORANGE","Alimentaire","Primeur",30),
+            ("BOUCHERIE JO","Alimentaire","Boucherie",40),
+            ("ME PAUL","Réglement Pro","Cabinet Medicale",50),
+            ("URSSAF","Charge Pro","URSSAF",60),
+            ("IMPÔT","Charge Pers","IMPOT",70),
+            ("IMPOT","Charge Pers","IMPOT",71),
+            ("ASURANCE ALIANZ JO","Assurance","Assurance",80),
+            ("ASSURANCE ALLIANZ JO","Assurance","Assurance",81)
+        };
+        foreach (var rule in defaults)
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "INSERT INTO ClassificationRules(ContainsText,Type,SubType,Priority,Enabled) VALUES($text,$type,$sub,$priority,1)";
+            cmd.Parameters.AddWithValue("$text",rule.Text); cmd.Parameters.AddWithValue("$type",rule.Type); cmd.Parameters.AddWithValue("$sub",rule.SubType); cmd.Parameters.AddWithValue("$priority",rule.Priority); cmd.ExecuteNonQuery();
+        }
     }
 
     private static void ApplyOneTimeReset(SqliteConnection connection)
@@ -127,5 +177,41 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
     }
 
     public static List<DuplicateOperation> LoadOperationsForDuplicateAnalysis(){var list=new List<DuplicateOperation>();using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText=@"SELECT o.Id,i.BankName,i.AccountDisplayName,o.OperationDate,o.ValueDate,o.Debit,o.Credit,o.Currency,o.Nature,o.InterbankLabel,o.Details FROM Operations o JOIN Imports i ON i.Id=o.ImportId ORDER BY o.OperationDate,o.Id";using var r=cmd.ExecuteReader();while(r.Read())list.Add(new DuplicateOperation{Id=r.GetInt64(0),Bank=r.GetString(1),Account=r.GetString(2),Date=DateTime.Parse(r.GetString(3),CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind),ValueDate=r.IsDBNull(4)?null:DateTime.Parse(r.GetString(4),CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind),Amount=Convert.ToDecimal(r.GetDouble(6),CultureInfo.InvariantCulture)+Convert.ToDecimal(r.GetDouble(5),CultureInfo.InvariantCulture),Currency=r.GetString(7),Nature=r.GetString(8),Label=r.GetString(9),Details=r.GetString(10)});return list;}
+    public static Dictionary<long,OperationClassification> LoadOperationClassifications()
+    {
+        var result=new Dictionary<long,OperationClassification>(); using var c=OpenConnection(); using var cmd=c.CreateCommand();
+        cmd.CommandText="SELECT Id,OperationType,OperationSubType,ClassificationMode FROM Operations";
+        using var r=cmd.ExecuteReader(); while(r.Read()) result[r.GetInt64(0)]=new OperationClassification{OperationId=r.GetInt64(0),Type=r.GetString(1),SubType=r.GetString(2),Mode=r.GetString(3)}; return result;
+    }
+    public static void SetOperationClassification(long operationId,string type,string subType,string mode)
+    {
+        using var c=OpenConnection(); using var cmd=c.CreateCommand(); cmd.CommandText="UPDATE Operations SET OperationType=$type,OperationSubType=$sub,ClassificationMode=$mode WHERE Id=$id";
+        cmd.Parameters.AddWithValue("$type",type.Trim());cmd.Parameters.AddWithValue("$sub",subType.Trim());cmd.Parameters.AddWithValue("$mode",mode.Trim());cmd.Parameters.AddWithValue("$id",operationId);cmd.ExecuteNonQuery();
+    }
+    public static List<ClassificationRule> LoadClassificationRules()
+    {
+        var list=new List<ClassificationRule>();using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText="SELECT Id,ContainsText,Type,SubType,Priority,Enabled FROM ClassificationRules ORDER BY Priority,Id";
+        using var r=cmd.ExecuteReader();while(r.Read())list.Add(new ClassificationRule{Id=r.GetInt64(0),ContainsText=r.GetString(1),Type=r.GetString(2),SubType=r.GetString(3),Priority=r.GetInt32(4),Enabled=r.GetInt32(5)==1});return list;
+    }
+    public static void SaveClassificationRule(ClassificationRule rule)
+    {
+        using var c=OpenConnection();using var cmd=c.CreateCommand();
+        if(rule.Id==0){cmd.CommandText="INSERT INTO ClassificationRules(ContainsText,Type,SubType,Priority,Enabled) VALUES($text,$type,$sub,$priority,$enabled)";}else{cmd.CommandText="UPDATE ClassificationRules SET ContainsText=$text,Type=$type,SubType=$sub,Priority=$priority,Enabled=$enabled WHERE Id=$id";cmd.Parameters.AddWithValue("$id",rule.Id);}
+        cmd.Parameters.AddWithValue("$text",rule.ContainsText.Trim());cmd.Parameters.AddWithValue("$type",rule.Type.Trim());cmd.Parameters.AddWithValue("$sub",rule.SubType.Trim());cmd.Parameters.AddWithValue("$priority",rule.Priority);cmd.Parameters.AddWithValue("$enabled",rule.Enabled?1:0);cmd.ExecuteNonQuery();
+    }
+    public static void DeleteClassificationRule(long id){using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText="DELETE FROM ClassificationRules WHERE Id=$id";cmd.Parameters.AddWithValue("$id",id);cmd.ExecuteNonQuery();}
+    public static int ApplyAutomaticClassification(bool overwriteManual=false)
+    {
+        var rules=LoadClassificationRules().Where(x=>x.Enabled&&!string.IsNullOrWhiteSpace(x.ContainsText)).OrderBy(x=>x.Priority).ThenBy(x=>x.Id).ToList();
+        using var c=OpenConnection();var changed=0;using var read=c.CreateCommand();read.CommandText="SELECT Id,Nature,InterbankLabel,Details,ClassificationMode FROM Operations";using var r=read.ExecuteReader();var updates=new List<(long Id,string Type,string Sub)>();
+        while(r.Read())
+        {
+            var mode=r.GetString(4);if(!overwriteManual&&string.Equals(mode,"Manuel",StringComparison.OrdinalIgnoreCase))continue;
+            var text=$"{r.GetString(1)} {r.GetString(2)} {r.GetString(3)}";
+            var rule=rules.FirstOrDefault(x=>text.Contains(x.ContainsText,StringComparison.CurrentCultureIgnoreCase));if(rule is not null)updates.Add((r.GetInt64(0),rule.Type,rule.SubType));
+        }
+        r.Close();foreach(var u in updates){using var cmd=c.CreateCommand();cmd.CommandText="UPDATE Operations SET OperationType=$type,OperationSubType=$sub,ClassificationMode='Auto' WHERE Id=$id";cmd.Parameters.AddWithValue("$type",u.Type);cmd.Parameters.AddWithValue("$sub",u.Sub);cmd.Parameters.AddWithValue("$id",u.Id);changed+=cmd.ExecuteNonQuery();}return changed;
+    }
+
     public static DashboardBankingStats GetDashboardStats(){using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText=@"SELECT (SELECT COUNT(*) FROM Imports),(SELECT COUNT(*) FROM Operations),(SELECT COUNT(*) FROM Accounts),COALESCE((SELECT SUM(ABS(Credit+Debit)) FROM Operations WHERE IsDeferredCardSummary=1),0);";using var r=cmd.ExecuteReader();if(!r.Read())return new DashboardBankingStats();return new DashboardBankingStats{Documents=r.GetInt32(0),Operations=r.GetInt32(1),Accounts=r.GetInt32(2),DeferredCardAmount=Convert.ToDecimal(r.GetDouble(3),CultureInfo.InvariantCulture)};}
 }
