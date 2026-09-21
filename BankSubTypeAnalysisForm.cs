@@ -37,6 +37,18 @@ internal sealed class BankSubTypeAnalysisForm : Form
         var synth=wb.Worksheets.Add("Totaux comptes");synth.Cell(1,1).Value="Banque";synth.Cell(1,2).Value="Compte";synth.Cell(1,3).Value="Dépenses";synth.Cell(1,4).Value="Recettes";synth.Cell(1,5).Value="Solde";var sr=2;
         foreach(var g in rows.GroupBy(x=>new{x.Bank,x.Account}).OrderBy(x=>x.Key.Bank).ThenBy(x=>x.Key.Account)){var dep=g.Sum(x=>Math.Abs(Math.Min(0m,x.Op.Debit+x.Op.Credit)));var rec=g.Sum(x=>Math.Max(0m,x.Op.Debit+x.Op.Credit));synth.Cell(sr,1).Value=g.Key.Bank;synth.Cell(sr,2).Value=g.Key.Account;synth.Cell(sr,3).Value=dep;synth.Cell(sr,4).Value=rec;synth.Cell(sr,5).Value=rec-dep;sr++;}
         synth.Range(1,1,sr-1,5).CreateTable("TotauxComptes");synth.Columns().AdjustToContents();synth.Columns(3,5).Style.NumberFormat.Format="#,##0.00 €";
+        var chartData=wb.Worksheets.Add("Graphique comptes");
+        chartData.Cell(1,1).Value="Compte bancaire";chartData.Cell(1,2).Value="Dépenses";chartData.Cell(1,3).Value="Recettes";
+        var cr=2;
+        foreach(var g in rows.GroupBy(x=>new{x.Bank,x.Account}).OrderBy(x=>x.Key.Bank).ThenBy(x=>x.Key.Account))
+        {
+            chartData.Cell(cr,1).Value=$"{g.Key.Bank} — {g.Key.Account}";
+            chartData.Cell(cr,2).Value=g.Sum(x=>Math.Abs(Math.Min(0m,x.Op.Debit+x.Op.Credit)));
+            chartData.Cell(cr,3).Value=g.Sum(x=>Math.Max(0m,x.Op.Debit+x.Op.Credit));cr++;
+        }
+        chartData.Range(1,1,cr-1,3).CreateTable("DonneesGraphiqueComptes");chartData.Columns().AdjustToContents();chartData.Columns(2,3).Style.NumberFormat.Format="#,##0.00 €";
+        chartData.Cell(cr+2,1).Value="GRAPHIQUE : Dépenses / Recettes par compte";
+        chartData.Cell(cr+3,1).Value="Les données ci-dessus sont structurées pour créer un graphique Excel groupé.";
         wb.SaveAs(save.FileName);_status.Text=$"{rows.Count:N0} opérations • {groups.Count:N0} regroupements compte / S_Type";MessageBox.Show("Le nouveau classeur Excel a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 }
