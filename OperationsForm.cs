@@ -12,6 +12,7 @@ internal sealed class OperationsForm : Form
     private readonly Button _deleteButton;
     private readonly Label _countLabel;
     private readonly Label _totalLabel;
+    private readonly TextBox _selectedOperationInfo;
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
 
     public OperationsForm()
@@ -36,7 +37,13 @@ internal sealed class OperationsForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-        layout.Controls.Add(new Label { Text = "OPÉRATIONS", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 23F, FontStyle.Bold) }, 0, 0);
+        var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = BackColor };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        header.Controls.Add(new Label { Text = "OPÉRATIONS", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 23F, FontStyle.Bold) }, 0, 0);
+        _selectedOperationInfo = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(7,43,82), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 10F), Margin = new Padding(8,14,0,14), PlaceholderText = "Sélectionnez une opération : Date • Libellé" };
+        header.Controls.Add(_selectedOperationInfo, 1, 0);
+        layout.Controls.Add(header, 0, 0);
 
         var filters = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, BackColor = Color.FromArgb(4, 36, 73), Padding = new Padding(12, 9, 12, 8) };
         _bankFilter = new ComboBox { Width = 220, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -111,10 +118,23 @@ internal sealed class OperationsForm : Form
             if (column is not DataGridViewCheckBoxColumn) column.ReadOnly = true;
         _grid.CellFormatting += FormatAmountCells;
         _grid.CellFormatting += FormatClassificationCells;
+        _grid.SelectionChanged += (_, _) => UpdateSelectedOperationInfo();
+        _grid.CellClick += (_, _) => UpdateSelectedOperationInfo();
         layout.Controls.Add(_grid, 0, 3);
 
         Controls.Add(layout);
         RefreshAccountFilter();
+    }
+
+    private void UpdateSelectedOperationInfo()
+    {
+        if (_grid.CurrentRow?.DataBoundItem is not OperationRow row)
+        {
+            _selectedOperationInfo.Text = string.Empty;
+            return;
+        }
+        var label = string.IsNullOrWhiteSpace(row.Label) ? row.Nature : row.Label;
+        _selectedOperationInfo.Text = $"{row.Date:dd/MM/yyyy}   •   {label}";
     }
 
     private void FormatAmountCells(object? sender, DataGridViewCellFormattingEventArgs e)
