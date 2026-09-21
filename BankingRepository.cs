@@ -19,7 +19,7 @@ internal sealed class BankAccountProfile
 }
 internal sealed class BankingConfiguration { public List<BankAccountProfile> Accounts { get; set; } = new(); }
 internal sealed class OperationClassification { public long OperationId { get; set; } public string Type { get; set; } = string.Empty; public string SubType { get; set; } = string.Empty; public string Mode { get; set; } = string.Empty; }
-internal sealed class ClassificationRule { public long Id { get; set; } public string ContainsText { get; set; } = string.Empty; public string Type { get; set; } = string.Empty; public string SubType { get; set; } = string.Empty; public int Priority { get; set; } = 100; public bool Enabled { get; set; } = true; }
+internal sealed class ClassificationRule { public long Id { get; set; } public string ContainsText { get; set; } = string.Empty; public string Type { get; set; } = string.Empty; public string SubType { get; set; } = string.Empty; public int Priority { get; set; } = 100; public string CellColor { get; set; } = ""; public bool Enabled { get; set; } = true; }
 internal sealed class DashboardBankingStats { public int Documents { get; set; } public int Operations { get; set; } public int Accounts { get; set; } public decimal DeferredCardAmount { get; set; } }
 
 internal static class BankingRepository
@@ -44,6 +44,7 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
         command.ExecuteNonQuery();
         EnsureSourceDateColumn(connection);
         EnsureOperationClassificationColumns(connection);
+        EnsureClassificationRuleColorColumn(connection);
         EnsureDefaultClassificationRules(connection);
         ApplyOneTimeReset(connection);
     }
@@ -86,6 +87,12 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
             alter.CommandText = $"ALTER TABLE Operations ADD COLUMN {definition};";
             alter.ExecuteNonQuery();
         }
+    }
+
+    private static void EnsureClassificationRuleColorColumn(SqliteConnection connection)
+    {
+        using var info=connection.CreateCommand();info.CommandText="PRAGMA table_info(ClassificationRules);";using var r=info.ExecuteReader();var exists=false;while(r.Read())if(string.Equals(r.GetString(1),"CellColor",StringComparison.OrdinalIgnoreCase)){exists=true;break;}r.Close();
+        if(!exists){using var alter=connection.CreateCommand();alter.CommandText="ALTER TABLE ClassificationRules ADD COLUMN CellColor TEXT NOT NULL DEFAULT '';";alter.ExecuteNonQuery();}
     }
 
     private static void EnsureDefaultClassificationRules(SqliteConnection connection)
@@ -191,14 +198,14 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
     }
     public static List<ClassificationRule> LoadClassificationRules()
     {
-        var list=new List<ClassificationRule>();using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText="SELECT Id,ContainsText,Type,SubType,Priority,Enabled FROM ClassificationRules ORDER BY Priority,Id";
-        using var r=cmd.ExecuteReader();while(r.Read())list.Add(new ClassificationRule{Id=r.GetInt64(0),ContainsText=r.GetString(1),Type=r.GetString(2),SubType=r.GetString(3),Priority=r.GetInt32(4),Enabled=r.GetInt32(5)==1});return list;
+        var list=new List<ClassificationRule>();using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText="SELECT Id,ContainsText,Type,SubType,Priority,Enabled,CellColor FROM ClassificationRules ORDER BY Priority,Id";
+        using var r=cmd.ExecuteReader();while(r.Read())list.Add(new ClassificationRule{Id=r.GetInt64(0),ContainsText=r.GetString(1),Type=r.GetString(2),SubType=r.GetString(3),Priority=r.GetInt32(4),Enabled=r.GetInt32(5)==1,CellColor=r.IsDBNull(6)?"":r.GetString(6)});return list;
     }
     public static void SaveClassificationRule(ClassificationRule rule)
     {
         using var c=OpenConnection();using var cmd=c.CreateCommand();
-        if(rule.Id==0){cmd.CommandText="INSERT INTO ClassificationRules(ContainsText,Type,SubType,Priority,Enabled) VALUES($text,$type,$sub,$priority,$enabled)";}else{cmd.CommandText="UPDATE ClassificationRules SET ContainsText=$text,Type=$type,SubType=$sub,Priority=$priority,Enabled=$enabled WHERE Id=$id";cmd.Parameters.AddWithValue("$id",rule.Id);}
-        cmd.Parameters.AddWithValue("$text",rule.ContainsText.Trim());cmd.Parameters.AddWithValue("$type",rule.Type.Trim());cmd.Parameters.AddWithValue("$sub",rule.SubType.Trim());cmd.Parameters.AddWithValue("$priority",rule.Priority);cmd.Parameters.AddWithValue("$enabled",rule.Enabled?1:0);cmd.ExecuteNonQuery();
+        if(rule.Id==0){cmd.CommandText="INSERT INTO ClassificationRules(ContainsText,Type,SubType,Priority,Enabled,CellColor) VALUES($text,$type,$sub,$priority,$enabled,$color)";}else{cmd.CommandText="UPDATE ClassificationRules SET ContainsText=$text,Type=$type,SubType=$sub,Priority=$priority,Enabled=$enabled,CellColor=$color WHERE Id=$id";cmd.Parameters.AddWithValue("$id",rule.Id);}
+        cmd.Parameters.AddWithValue("$text",rule.ContainsText.Trim());cmd.Parameters.AddWithValue("$type",rule.Type.Trim());cmd.Parameters.AddWithValue("$sub",rule.SubType.Trim());cmd.Parameters.AddWithValue("$priority",rule.Priority);cmd.Parameters.AddWithValue("$enabled",rule.Enabled?1:0);cmd.Parameters.AddWithValue("$color",rule.CellColor??"");cmd.ExecuteNonQuery();
     }
     public static void DeleteClassificationRule(long id){using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText="DELETE FROM ClassificationRules WHERE Id=$id";cmd.Parameters.AddWithValue("$id",id);cmd.ExecuteNonQuery();}
     public static int ApplyAutomaticClassification(bool overwriteManual=false)
