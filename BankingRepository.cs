@@ -104,7 +104,8 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
             ("IMPÔT","Charge Pers","IMPOT",70),
             ("IMPOT","Charge Pers","IMPOT",71),
             ("ASURANCE ALIANZ JO","Assurance","Assurance",80),
-            ("ASSURANCE ALLIANZ JO","Assurance","Assurance",81)
+            ("ASSURANCE ALLIANZ JO","Assurance","Assurance",81),
+            ("CIPAV","RETRAITE","CIPAV",90)
         };
         foreach (var rule in defaults)
         {
