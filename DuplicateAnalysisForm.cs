@@ -113,7 +113,7 @@ internal sealed class DuplicateAnalysisForm : Form
     private void ReloadAccountFilter()
     {
         var current=_accountFilter.SelectedItem?.ToString()??"Tous les comptes";
-        var accounts=_candidates.SelectMany(x=>new[]{x.Left.Account,x.Right.Account}).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(x=>x).ToList();
+        var accounts=_candidates.SelectMany(x=>new[]{AccountKey(x.Left),AccountKey(x.Right)}).Where(x=>!string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(x=>x).ToList();
         _accountFilter.BeginUpdate();_accountFilter.Items.Clear();_accountFilter.Items.Add("Tous les comptes");foreach(var account in accounts)_accountFilter.Items.Add(account);
         var index=_accountFilter.Items.IndexOf(current);_accountFilter.SelectedIndex=index>=0?index:0;_accountFilter.EndUpdate();
     }
@@ -123,7 +123,7 @@ internal sealed class DuplicateAnalysisForm : Form
         // Une opération peut apparaître dans plusieurs paires. On ne l'affiche qu'une fois,
         // tout en conservant le meilleur score/motif rencontré.
         var selectedAccount=_accountFilter.SelectedItem?.ToString();
-        var candidates=string.IsNullOrWhiteSpace(selectedAccount)||selectedAccount=="Tous les comptes"?_candidates:_candidates.Where(x=>string.Equals(x.Left.Account,selectedAccount,StringComparison.CurrentCultureIgnoreCase)||string.Equals(x.Right.Account,selectedAccount,StringComparison.CurrentCultureIgnoreCase)).ToList();
+        var candidates=string.IsNullOrWhiteSpace(selectedAccount)||selectedAccount=="Tous les comptes"?_candidates:_candidates.Where(x=>string.Equals(AccountKey(x.Left),selectedAccount,StringComparison.CurrentCultureIgnoreCase)&&string.Equals(AccountKey(x.Right),selectedAccount,StringComparison.CurrentCultureIgnoreCase)).ToList();
         var rows=candidates
             .SelectMany(c=>new[]{new DuplicateLine(c,c.Left),new DuplicateLine(c,c.Right)})
             .GroupBy(x=>x.Operation.Id)
@@ -201,6 +201,7 @@ internal sealed class DuplicateAnalysisForm : Form
         MessageBox.Show($"{ids.Count} opération(s) supprimée(s).","QNB - Doublons",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 
+    private static string AccountKey(DuplicateOperation operation)=>$"{operation.Bank} — {operation.Account}";
     private static string BestLabel(DuplicateOperation operation)=>string.IsNullOrWhiteSpace(operation.Label)?operation.Nature:operation.Label;
     private sealed record DuplicateLine(DuplicateCandidate Candidate,DuplicateOperation Operation);
 }
