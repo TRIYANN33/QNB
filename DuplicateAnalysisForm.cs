@@ -23,13 +23,13 @@ internal static class DuplicateAnalysisService
 {
     public static List<DuplicateCandidate> Analyze()
     {
-        var operations=BankingRepository.LoadOperationsForDuplicateAnalysis();var results=new List<DuplicateCandidate>();
+        var operations=BankingRepository.LoadOperationsForDuplicateAnalysis();var excluded=BankingRepository.LoadDuplicateExclusions();var results=new List<DuplicateCandidate>();
         foreach(var group in operations.GroupBy(x=>new{Amount=decimal.Round(x.Amount,2),Currency=Normalize(x.Currency)}))
         {
             var items=group.OrderBy(x=>x.Date).ToList();
             for(var i=0;i<items.Count;i++) for(var j=i+1;j<items.Count;j++)
             {
-                var days=Math.Abs((items[j].Date.Date-items[i].Date.Date).Days);if(days>2)break;
+                var days=Math.Abs((items[j].Date.Date-items[i].Date.Date).Days);if(days>2)break;var key=$"{Math.Min(items[i].Id,items[j].Id)}:{Math.Max(items[i].Id,items[j].Id)}";if(excluded.Contains(key))continue;
                 var similarity=Similarity(Normalize($"{items[i].Nature} {items[i].Label} {items[i].Details}"),Normalize($"{items[j].Nature} {items[j].Label} {items[j].Details}"));
                 var sameValueDate=items[i].ValueDate.HasValue&&items[j].ValueDate.HasValue&&items[i].ValueDate.Value.Date==items[j].ValueDate.Value.Date;
                 var score=45+(days==0?30:days==1?18:10)+(int)Math.Round(similarity*25m)+(sameValueDate?5:0);score=Math.Min(score,100);if(score<70)continue;
@@ -68,9 +68,11 @@ internal sealed class DuplicateAnalysisForm : Form
         var close=new Button{Text="Fermer",Width=110,Height=34,DialogResult=DialogResult.Cancel};
         var refresh=new Button{Text="Relancer l'analyse",Width=150,Height=34,BackColor=Color.FromArgb(34,149,255),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
         var sort=new Button{Text="Tri 3 champs",Width=135,Height=34,BackColor=Color.FromArgb(16,112,187),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        var notDuplicate=new Button{Text="Pas un doublon",Width=145,Height=34,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        var showExcluded=new Button{Text="Réafficher les exclus",Width=165,Height=34,BackColor=Color.FromArgb(100,90,150),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
         var delete=new Button{Text="✕ Supprimer cochées",Width=185,Height=34,BackColor=Color.FromArgb(190,48,58),ForeColor=Color.White,Font=new Font("Segoe UI Semibold",9.3F,FontStyle.Bold),FlatStyle=FlatStyle.Flat};
-        refresh.Click+=(_,_)=>LoadCandidates(); sort.Click+=(_,_)=>ConfigureSort(); delete.Click+=(_,_)=>DeleteChecked();
-        footer.Controls.Add(close); footer.Controls.Add(refresh); footer.Controls.Add(sort); footer.Controls.Add(delete);
+        refresh.Click+=(_,_)=>LoadCandidates(); sort.Click+=(_,_)=>ConfigureSort(); delete.Click+=(_,_)=>DeleteChecked(); notDuplicate.Click+=(_,_)=>MarkNotDuplicate(); showExcluded.Click+=(_,_)=>RestoreExcluded();
+        footer.Controls.Add(close); footer.Controls.Add(refresh); footer.Controls.Add(sort); footer.Controls.Add(showExcluded); footer.Controls.Add(notDuplicate); footer.Controls.Add(delete);
         _footerSummary=new Label{AutoSize=true,ForeColor=Color.White,Font=new Font("Segoe UI Semibold",10F,FontStyle.Bold),Margin=new Padding(18,8,24,0),TextAlign=ContentAlignment.MiddleLeft};
         footer.Controls.Add(_footerSummary);
         Controls.Add(_grid); Controls.Add(footer); Controls.Add(header); Shown+=(_,_)=>LoadCandidates();
@@ -117,6 +119,18 @@ internal sealed class DuplicateAnalysisForm : Form
         var totalRecords=BankingRepository.GetDashboardStats().Operations;
         _summary.Text=$"{rows.Count} opération(s) en doublon • {_candidates.Count} paire(s)";
         _footerSummary.Text=$"Doublons : {rows.Count:N0} / {totalRecords:N0} enregistrement(s)";
+    }
+
+    private void MarkNotDuplicate()
+    {
+        _grid.EndEdit();var selected=new List<long>();foreach(DataGridViewRow row in _grid.Rows)if(Convert.ToBoolean(row.Cells["Choix"].Value??false)&&long.TryParse(Convert.ToString(row.Cells["OperationId"].Value),out var id))selected.Add(id);
+        selected=selected.Distinct().ToList();if(selected.Count!=2){MessageBox.Show("Cochez exactement les 2 opérations qui ne sont pas des doublons.","QNB - Doublons",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        BankingRepository.ExcludeDuplicatePair(selected[0],selected[1]);LoadCandidates();
+    }
+    private void RestoreExcluded()
+    {
+        var answer=MessageBox.Show("Réafficher toutes les paires précédemment marquées « Pas un doublon » ?","QNB - Doublons",MessageBoxButtons.YesNo,MessageBoxIcon.Question);
+        if(answer!=DialogResult.Yes)return;BankingRepository.ClearDuplicateExclusions();LoadCandidates();
     }
 
     private void DeleteChecked()
