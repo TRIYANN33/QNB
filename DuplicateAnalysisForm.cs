@@ -48,6 +48,7 @@ internal sealed class DuplicateAnalysisForm : Form
     private readonly Label _summary;
     private readonly Label _footerSummary;
     private readonly ComboBox _accountFilter;
+    private readonly TextBox _selectedOperationInfo;
     private List<DuplicateCandidate> _candidates = new();
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
 
@@ -56,6 +57,7 @@ internal sealed class DuplicateAnalysisForm : Form
         Text="QNB - Analyse globale des doublons"; StartPosition=FormStartPosition.CenterParent; Size=new Size(1500,800); MinimumSize=new Size(1100,620); BackColor=Color.FromArgb(3,23,49); ForeColor=Color.White; Font=new Font("Segoe UI",9F);
         var header=new Panel{Dock=DockStyle.Top,Height=82,Padding=new Padding(18,12,18,8),BackColor=Color.FromArgb(4,36,73)};
         header.Controls.Add(new Label{Text="Analyse globale des doublons",AutoSize=true,Font=new Font("Segoe UI Semibold",16F,FontStyle.Bold),ForeColor=Color.White,Location=new Point(18,10)});
+        _selectedOperationInfo=new TextBox{ReadOnly=true,Width=720,Height=28,Location=new Point(330,10),BackColor=Color.FromArgb(7,43,82),ForeColor=Color.White,BorderStyle=BorderStyle.FixedSingle,Font=new Font("Segoe UI Semibold",9.5F),PlaceholderText="Sélectionnez une opération : Date • Libellé • Détail"};header.Controls.Add(_selectedOperationInfo);
         header.Controls.Add(new Label{Text="Toutes les opérations impliquées dans un doublon sont affichées séparément • cochez celles que vous souhaitez supprimer",AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Location=new Point(20,44)});
         _summary=new Label{AutoSize=true,Anchor=AnchorStyles.Top|AnchorStyles.Right,ForeColor=Color.FromArgb(58,196,187),Font=new Font("Segoe UI Semibold",10F,FontStyle.Bold),Location=new Point(1150,28)}; header.Controls.Add(_summary);
         header.Controls.Add(new Label{Text="Compte :",AutoSize=true,ForeColor=Color.White,Location=new Point(620,47)});
@@ -67,6 +69,8 @@ internal sealed class DuplicateAnalysisForm : Form
         _grid.DefaultCellStyle.BackColor=Color.FromArgb(7,43,82); _grid.DefaultCellStyle.ForeColor=Color.White; _grid.DefaultCellStyle.SelectionBackColor=Color.FromArgb(18,82,146); _grid.DefaultCellStyle.SelectionForeColor=Color.White;
         AddColumns();
         foreach(DataGridViewColumn column in _grid.Columns) if(column is not DataGridViewCheckBoxColumn) column.ReadOnly=true;
+        _grid.SelectionChanged+=(_,_)=>UpdateSelectedOperationInfo();
+        _grid.CellClick+=(_,_)=>UpdateSelectedOperationInfo();
 
         var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=58,FlowDirection=FlowDirection.RightToLeft,Padding=new Padding(10),BackColor=Color.FromArgb(4,36,73)};
         var close=new Button{Text="Fermer",Width=110,Height=34,DialogResult=DialogResult.Cancel};
@@ -146,6 +150,15 @@ internal sealed class DuplicateAnalysisForm : Form
     {
         var answer=MessageBox.Show("Réafficher toutes les paires précédemment marquées « Pas un doublon » ?","QNB - Doublons",MessageBoxButtons.YesNo,MessageBoxIcon.Question);
         if(answer!=DialogResult.Yes)return;BankingRepository.ClearDuplicateExclusions();LoadCandidates();
+    }
+
+    private void UpdateSelectedOperationInfo()
+    {
+        if(_grid.CurrentRow is null){_selectedOperationInfo.Text=string.Empty;return;}
+        var date=Convert.ToString(_grid.CurrentRow.Cells["Date"].Value)??string.Empty;
+        var label=Convert.ToString(_grid.CurrentRow.Cells["Libellé"].Value)??string.Empty;
+        var details=Convert.ToString(_grid.CurrentRow.Cells["Détails"].Value)??string.Empty;
+        _selectedOperationInfo.Text=$"{date}   •   {label}   •   {(string.IsNullOrWhiteSpace(details)?"—":details)}";
     }
 
     private void DeleteChecked()
