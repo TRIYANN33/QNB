@@ -8,13 +8,15 @@ internal sealed class BankSubTypeAnalysisForm : Form
     private readonly DateTimePicker _to=new(){Format=DateTimePickerFormat.Short,Width=120};
     private readonly Label _status=new(){AutoSize=true,ForeColor=Color.FromArgb(183,207,229)};
 
-    public BankSubTypeAnalysisForm()
+    public BankSubTypeAnalysisForm() : this(null,null) { }
+
+    public BankSubTypeAnalysisForm(DateTime? from,DateTime? to)
     {
         Text="QNB - Analyse par compte et S_Type";StartPosition=FormStartPosition.CenterParent;Size=new Size(800,310);MinimumSize=new Size(680,290);
         BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",10F);
         var title=new Label{Text="ANALYSE PAR COMPTE / S_TYPE",Dock=DockStyle.Top,Height=62,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(22,0,0,0),Font=new Font("Segoe UI Semibold",20F,FontStyle.Bold)};
         var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(22),BackColor=Color.FromArgb(4,36,73),FlowDirection=FlowDirection.LeftToRight,WrapContents=true};
-        var ops=BankingRepository.LoadImports().SelectMany(x=>x.Operations).ToList();var min=ops.Count>0?ops.Min(x=>x.Date).Date:DateTime.Today;var max=ops.Count>0?ops.Max(x=>x.Date).Date:DateTime.Today;_from.Value=min;_to.Value=max;
+        var ops=BankingRepository.LoadImports().SelectMany(x=>x.Operations).ToList();var min=ops.Count>0?ops.Min(x=>x.Date).Date:DateTime.Today;var max=ops.Count>0?ops.Max(x=>x.Date).Date:DateTime.Today;_from.Value=from.HasValue&&from.Value>=_from.MinDate&&from.Value<=_from.MaxDate?from.Value:min;_to.Value=to.HasValue&&to.Value>=_to.MinDate&&to.Value<=_to.MaxDate?to.Value:max;
         panel.Controls.Add(L("Du"));panel.Controls.Add(_from);panel.Controls.Add(L("au"));panel.Controls.Add(_to);
         var export=new Button{Text="Créer nouveau classeur",Width=190,Height=34,Margin=new Padding(20,0,0,0),BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};export.Click+=(_,_)=>Export();panel.Controls.Add(export);
         panel.SetFlowBreak(export,true);_status.Margin=new Padding(0,22,0,0);_status.Width=720;panel.Controls.Add(_status);Controls.Add(panel);Controls.Add(title);
