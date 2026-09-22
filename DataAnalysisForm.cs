@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using ClosedXML.Excel;
 
@@ -72,7 +73,10 @@ internal sealed class DataAnalysisForm : Form
             r++;
         }
         ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);
-        wb.SaveAs(save.FileName);_status.Text=$"Journal détaillé créé : {rows.Count:N0} opérations";MessageBox.Show("Le journal détaillé par compte, mois, Type et S_Type a été créé.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
+        wb.SaveAs(save.FileName);_status.Text=$"Journal détaillé créé : {rows.Count:N0} opérations";
+        try{Process.Start(new ProcessStartInfo(save.FileName){UseShellExecute=true});}
+        catch(Exception ex){MessageBox.Show($"Le journal a bien été créé, mais son ouverture automatique a échoué.\n\n{ex.Message}","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}
+        MessageBox.Show("Le journal détaillé a été créé et ouvert dans Excel.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 
     private static Label Label(string s)=>new(){Text=s,AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(8,7,5,0)};
