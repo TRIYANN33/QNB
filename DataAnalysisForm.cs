@@ -26,6 +26,7 @@ internal sealed class DataAnalysisForm : Form
     {
         if(_from.Value.Date>_to.Value.Date){MessageBox.Show("La date de début doit être antérieure à la date de fin.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}
         var cls=BankingRepository.LoadOperationClassifications();
+        var ruleColors=BankingRepository.LoadClassificationRules().Where(x=>x.Enabled&&!string.IsNullOrWhiteSpace(x.CellColor)).OrderBy(x=>x.Priority).ToList();
         var rows=BankingRepository.LoadImports().SelectMany(i=>i.Operations.Select(o=>new{Import=i,Op=o}))
             .Where(x=>x.Op.Date.Date>=_from.Value.Date&&x.Op.Date.Date<=_to.Value.Date)
             .Select(x=>{cls.TryGetValue(x.Op.Id,out var k);return new{Bank=string.IsNullOrWhiteSpace(x.Import.BankName)?"—":x.Import.BankName,Account=string.IsNullOrWhiteSpace(x.Import.AccountDisplayName)?x.Import.AccountReference:x.Import.AccountDisplayName,Op=x.Op,Type=string.IsNullOrWhiteSpace(k?.Type)?"Non typé":k.Type,SubType=string.IsNullOrWhiteSpace(k?.SubType)?"Non typé":k.SubType};}).ToList();
@@ -40,7 +41,10 @@ internal sealed class DataAnalysisForm : Form
                 ws.Cell(r,1).Value="MOIS";ws.Cell(r,2).Value=new DateTime(month.Key.Year,month.Key.Month,1);ws.Cell(r,2).Style.DateFormat.Format="mmmm yyyy";ws.Range(r,1,r,8).Style.Font.Bold=true;r++;
                 foreach(var type in month.GroupBy(x=>x.Type).OrderBy(x=>x.Key))
                 {
-                    ws.Cell(r,1).Value="TYPE";ws.Cell(r,2).Value=type.Key;ws.Range(r,1,r,8).Style.Font.Bold=true;r++;
+                    ws.Cell(r,1).Value="TYPE";ws.Cell(r,2).Value=type.Key;ws.Range(r,1,r,8).Style.Font.Bold=true;
+                    var typeRule=ruleColors.FirstOrDefault(x=>string.Equals(x.Type,type.Key,StringComparison.CurrentCultureIgnoreCase));
+                    if(typeRule is not null)try{ws.Range(r,1,r,8).Style.Fill.BackgroundColor=XLColor.FromHtml(typeRule.CellColor);var color=ColorTranslator.FromHtml(typeRule.CellColor);ws.Range(r,1,r,8).Style.Font.FontColor=(color.R*299+color.G*587+color.B*114)/1000>140?XLColor.Black:XLColor.White;}catch{}
+                    r++;
                     foreach(var sub in type.GroupBy(x=>x.SubType).OrderBy(x=>x.Key))
                     {
                         ws.Cell(r,1).Value="S_TYPE";ws.Cell(r,2).Value=sub.Key;ws.Range(r,1,r,8).Style.Font.Bold=true;r++;
