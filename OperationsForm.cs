@@ -103,6 +103,10 @@ internal sealed class OperationsForm : Form
         autoButton.Click += (_, _) => ApplyAutomaticTyping(); actionRow.Controls.Add(autoButton);
         var ruleButton = new Button { Text = "Règle → cochées", Width = 145, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(185,120,35), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         ruleButton.Click += (_, _) => ApplyRuleToCheckedOperations(); actionRow.Controls.Add(ruleButton);
+        var checkAllButton = new Button { Text = "Tout cocher", Width = 105, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(45,105,165), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        checkAllButton.Click += (_, _) => SetDisplayedChecks(true); actionRow.Controls.Add(checkAllButton);
+        var uncheckAllButton = new Button { Text = "Tout décocher", Width = 115, Height = 34, Margin = new Padding(5,0,0,0), BackColor = Color.FromArgb(70,82,100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        uncheckAllButton.Click += (_, _) => SetDisplayedChecks(false); actionRow.Controls.Add(uncheckAllButton);
 
         filters.Controls.Add(filterRow,0,0); filters.Controls.Add(actionRow,0,1);
         layout.Controls.Add(filters, 0, 1);
@@ -237,6 +241,14 @@ internal sealed class OperationsForm : Form
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         BankingRepository.SetOperationClassification(row.Id,dialog.OperationType,dialog.OperationSubType,"Manuel");
         row.Type=dialog.OperationType; row.SubType=dialog.OperationSubType; row.ClassificationMode="Manuel"; ApplyFilters();
+    }
+
+    private void SetDisplayedChecks(bool value)
+    {
+        _grid.EndEdit();
+        foreach(DataGridViewRow gridRow in _grid.Rows)
+            if(gridRow.DataBoundItem is OperationRow row) row.DeleteSelected=value;
+        _grid.Refresh();
     }
 
     private void ApplyRuleToCheckedOperations()
