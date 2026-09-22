@@ -101,6 +101,8 @@ internal sealed class OperationsForm : Form
         manualButton.Click += (_, _) => ClassifySelectedManually(); actionRow.Controls.Add(manualButton);
         var autoButton = new Button { Text = "Typage auto", Width = 115, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(25,130,105), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         autoButton.Click += (_, _) => ApplyAutomaticTyping(); actionRow.Controls.Add(autoButton);
+        var ruleButton = new Button { Text = "Règle → cochées", Width = 145, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(185,120,35), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        ruleButton.Click += (_, _) => ApplyRuleToCheckedOperations(); actionRow.Controls.Add(ruleButton);
 
         filters.Controls.Add(filterRow,0,0); filters.Controls.Add(actionRow,0,1);
         layout.Controls.Add(filters, 0, 1);
@@ -129,7 +131,7 @@ internal sealed class OperationsForm : Form
         _grid.DefaultCellStyle.SelectionForeColor = Color.White;
 
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "N°", DataPropertyName = nameof(OperationRow.Number), Width = 55, FillWeight = 42, ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
-        _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Suppr.", DataPropertyName = nameof(OperationRow.DeleteSelected), Width = 55, FillWeight = 42, ReadOnly = false, SortMode = DataGridViewColumnSortMode.NotSortable });
+        _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Choix", DataPropertyName = nameof(OperationRow.DeleteSelected), Width = 55, FillWeight = 42, ReadOnly = false, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Banque", DataPropertyName = nameof(OperationRow.Bank), FillWeight = 90, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Compte", DataPropertyName = nameof(OperationRow.Account), FillWeight = 110, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Date", DataPropertyName = nameof(OperationRow.Date), FillWeight = 65, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
@@ -237,6 +239,24 @@ internal sealed class OperationsForm : Form
         row.Type=dialog.OperationType; row.SubType=dialog.OperationSubType; row.ClassificationMode="Manuel"; ApplyFilters();
     }
 
+    private void ApplyRuleToCheckedOperations()
+    {
+        _grid.EndEdit();
+        var selected=_allRows.Where(x=>x.DeleteSelected).ToList();
+        if(selected.Count==0){MessageBox.Show("Cochez une ou plusieurs opérations.","QNB - Règle auto",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        var rules=BankingRepository.LoadClassificationRules().Where(x=>x.Enabled).OrderBy(x=>x.Priority).ThenBy(x=>x.Type).ThenBy(x=>x.SubType).ToList();
+        if(rules.Count==0){MessageBox.Show("Aucune règle automatique active.","QNB - Règle auto",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        using var dialog=new Form{Text="Choisir une règle automatique",StartPosition=FormStartPosition.CenterParent,Size=new Size(620,180),MinimumSize=new Size(520,180),BackColor=Color.FromArgb(3,23,49),ForeColor=Color.White,Font=new Font("Segoe UI",10F)};
+        var combo=new ComboBox{Left=20,Top=25,Width=560,DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Text"};
+        var choices=rules.Select(x=>new RuleChoice(x,$"{x.Type} / {x.SubType}  —  contient « {x.ContainsText} »")).ToList();combo.DataSource=choices;
+        var validate=new Button{Text=$"Valider sur {selected.Count} opération(s)",Left=365,Top=75,Width=215,Height=34,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat,DialogResult=DialogResult.OK};
+        var cancel=new Button{Text="Annuler",Left=255,Top=75,Width=100,Height=34,BackColor=Color.FromArgb(70,82,100),ForeColor=Color.White,FlatStyle=FlatStyle.Flat,DialogResult=DialogResult.Cancel};
+        dialog.Controls.Add(combo);dialog.Controls.Add(validate);dialog.Controls.Add(cancel);dialog.AcceptButton=validate;dialog.CancelButton=cancel;
+        if(dialog.ShowDialog(this)!=DialogResult.OK||combo.SelectedItem is not RuleChoice choice)return;
+        foreach(var row in selected){BankingRepository.SetOperationClassification(row.Id,choice.Rule.Type,choice.Rule.SubType,"Règle");row.Type=choice.Rule.Type;row.SubType=choice.Rule.SubType;row.ClassificationMode="Règle";row.DeleteSelected=false;}
+        ApplyFilters();MessageBox.Show($"{selected.Count} opération(s) typée(s) avec la règle « {choice.Rule.Type} / {choice.Rule.SubType} ».","QNB - Règle auto",MessageBoxButtons.OK,MessageBoxIcon.Information);
+    }
+
     private void ApplyAutomaticTyping()
     {
         var changed=BankingRepository.ApplyAutomaticClassification();
@@ -333,6 +353,8 @@ internal sealed class OperationsForm : Form
 
     private static bool ContainsSearch(string? value, string search) =>
         !string.IsNullOrEmpty(value) && value.Contains(search, StringComparison.CurrentCultureIgnoreCase);
+
+    private sealed record RuleChoice(ClassificationRule Rule,string Text);
 
     private sealed class OperationRow
     {
