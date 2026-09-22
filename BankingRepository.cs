@@ -211,7 +211,21 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
         if(rule.Id==0){cmd.CommandText="INSERT INTO ClassificationRules(ContainsText,Type,SubType,Priority,Enabled,CellColor) VALUES($text,$type,$sub,$priority,$enabled,$color)";}else{cmd.CommandText="UPDATE ClassificationRules SET ContainsText=$text,Type=$type,SubType=$sub,Priority=$priority,Enabled=$enabled,CellColor=$color WHERE Id=$id";cmd.Parameters.AddWithValue("$id",rule.Id);}
         cmd.Parameters.AddWithValue("$text",rule.ContainsText.Trim());cmd.Parameters.AddWithValue("$type",rule.Type.Trim());cmd.Parameters.AddWithValue("$sub",rule.SubType.Trim());cmd.Parameters.AddWithValue("$priority",rule.Priority);cmd.Parameters.AddWithValue("$enabled",rule.Enabled?1:0);cmd.Parameters.AddWithValue("$color",rule.CellColor??"");cmd.ExecuteNonQuery();
     }
-    public static void DeleteClassificationRule(long id){using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText="DELETE FROM ClassificationRules WHERE Id=$id";cmd.Parameters.AddWithValue("$id",id);cmd.ExecuteNonQuery();}
+    public static int DeleteClassificationRule(long id)
+    {
+        using var c=OpenConnection();using var t=c.BeginTransaction();
+        string type="",subType="";
+        using(var read=c.CreateCommand()){read.Transaction=t;read.CommandText="SELECT Type,SubType FROM ClassificationRules WHERE Id=$id";read.Parameters.AddWithValue("$id",id);using var r=read.ExecuteReader();if(r.Read()){type=r.GetString(0);subType=r.GetString(1);}}
+        var cleared=0;
+        if(!string.IsNullOrWhiteSpace(type))
+        {
+            using var clear=c.CreateCommand();clear.Transaction=t;
+            clear.CommandText="UPDATE Operations SET OperationType='',OperationSubType='',ClassificationMode='' WHERE OperationType=$type AND OperationSubType=$sub AND ClassificationMode IN ('Auto','Règle')";
+            clear.Parameters.AddWithValue("$type",type);clear.Parameters.AddWithValue("$sub",subType);cleared=clear.ExecuteNonQuery();
+        }
+        using(var cmd=c.CreateCommand()){cmd.Transaction=t;cmd.CommandText="DELETE FROM ClassificationRules WHERE Id=$id";cmd.Parameters.AddWithValue("$id",id);cmd.ExecuteNonQuery();}
+        t.Commit();return cleared;
+    }
     public static int ApplyAutomaticClassification(bool overwriteManual=false)
     {
         var rules=LoadClassificationRules().Where(x=>x.Enabled&&!string.IsNullOrWhiteSpace(x.ContainsText)).OrderBy(x=>x.Priority).ThenBy(x=>x.Id).ToList();
