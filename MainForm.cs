@@ -88,7 +88,7 @@ public sealed class MainForm : Form
             ("◫", "Sources opérations"), ("≡", "Opérations"), ("◆", "Classification"),
             ("▤", "Référentiel"), ("●", "Couleurs"), ("☷", "Listes"), ("✓", "Contrôles"),
             ("⚙", "Règles auto"), ("▥", "Analyse des données"), ("◉", "Analyser les doublons"), ("↻", "Actualiser le classeur"),
-            ("↻", "Actualiser feuille"), ("?", "Mode emploi")
+            ("↻", "Actualiser feuille"), ("▦", "Sauvegarde / Restauration"), ("?", "Mode emploi")
         };
         for (var i = 0; i < items.Length; i++) menu.Controls.Add(CreateSidebarButton(items[i].Icon, items[i].Text, i == 0));
 
@@ -227,6 +227,7 @@ public sealed class MainForm : Form
             else if (string.Equals(text, "Analyser les doublons", StringComparison.OrdinalIgnoreCase)) ShowDuplicateAnalysis();
             else if (string.Equals(text, "Analyse des données", StringComparison.OrdinalIgnoreCase)) ShowDataAnalysis();
             else if (string.Equals(text, "Règles auto", StringComparison.OrdinalIgnoreCase)) ShowClassificationRules();
+            else if (string.Equals(text, "Sauvegarde / Restauration", StringComparison.OrdinalIgnoreCase)) ShowDatabaseBackup();
             else MessageBox.Show($"Module « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         return button;
@@ -254,6 +255,28 @@ public sealed class MainForm : Form
             else MessageBox.Show($"Action « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         return button;
+    }
+
+    private void ShowDatabaseBackup()
+    {
+        using var dialog=new Form{Text="QNB - Sauvegarde / Restauration",StartPosition=FormStartPosition.CenterParent,Size=new Size(610,250),MinimumSize=new Size(610,250),BackColor=Navy950,ForeColor=Color.White,Font=new Font("Segoe UI",10F)};
+        var info=new Label{Text="Base de données QNB\n"+BankingRepository.DatabaseFilePath,Left=24,Top=24,Width=545,Height=55,ForeColor=TextSoft};
+        var backup=new Button{Text="Sauvegarder la base",Left=24,Top=100,Width=250,Height=42,BackColor=Teal,ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        var restore=new Button{Text="Restaurer une sauvegarde",Left=294,Top=100,Width=275,Height=42,BackColor=Color.FromArgb(174,112,38),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        backup.Click+=(_,_)=>{
+            using var save=new SaveFileDialog{Filter="Sauvegarde QNB (*.db)|*.db",FileName=$"QNB_Sauvegarde_{DateTime.Now:yyyyMMdd_HHmmss}.db"};
+            if(save.ShowDialog(dialog)!=DialogResult.OK)return;
+            try{BankingRepository.BackupDatabase(save.FileName);MessageBox.Show("Sauvegarde créée avec succès.\n\n"+save.FileName,"QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);}
+            catch(Exception ex){MessageBox.Show("Échec de la sauvegarde.\n\n"+ex.Message,"QNB",MessageBoxButtons.OK,MessageBoxIcon.Error);}
+        };
+        restore.Click+=(_,_)=>{
+            using var open=new OpenFileDialog{Filter="Sauvegarde QNB (*.db)|*.db|Tous les fichiers (*.*)|*.*",CheckFileExists=true};
+            if(open.ShowDialog(dialog)!=DialogResult.OK)return;
+            if(MessageBox.Show("Restaurer cette sauvegarde remplacera toutes les données QNB actuelles.\n\nContinuer ?","QNB - Restauration",MessageBoxButtons.YesNo,MessageBoxIcon.Warning,MessageBoxDefaultButton.Button2)!=DialogResult.Yes)return;
+            try{BankingRepository.RestoreDatabase(open.FileName);RefreshDashboardStats();MessageBox.Show("Base restaurée avec succès. Fermez puis relancez les fenêtres Opérations ou Règles déjà ouvertes pour actualiser leur contenu.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);}
+            catch(Exception ex){MessageBox.Show("Échec de la restauration.\n\n"+ex.Message,"QNB",MessageBoxButtons.OK,MessageBoxIcon.Error);}
+        };
+        dialog.Controls.Add(info);dialog.Controls.Add(backup);dialog.Controls.Add(restore);dialog.ShowDialog(this);
     }
 
     private void ImportDocument()
