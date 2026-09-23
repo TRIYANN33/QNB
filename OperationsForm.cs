@@ -153,7 +153,16 @@ internal sealed class OperationsForm : Form
         _grid.CellFormatting += FormatAmountCells;
         _grid.CellFormatting += FormatClassificationCells;
         _grid.SelectionChanged += (_, _) => UpdateSelectedOperationInfo();
-        _grid.CellClick += (_, _) => UpdateSelectedOperationInfo();
+        _grid.CellClick += (_, e) =>
+        {
+            UpdateSelectedOperationInfo();
+            if(e.RowIndex<0 || e.ColumnIndex<0) return;
+            if(_grid.Columns[e.ColumnIndex].DataPropertyName!=nameof(OperationRow.Label)) return;
+            if(_grid.Rows[e.RowIndex].DataBoundItem is not OperationRow row) return;
+            _grid.EndEdit();
+            row.DeleteSelected=!row.DeleteSelected;
+            _grid.InvalidateRow(e.RowIndex);
+        };
         layout.Controls.Add(_grid, 0, 3);
 
         Controls.Add(layout);
