@@ -310,6 +310,7 @@ internal sealed class OperationsForm : Form
         foreach(DataGridViewRow gridRow in _grid.Rows)
             if(gridRow.DataBoundItem is OperationRow row) row.DeleteSelected=value;
         _grid.Refresh();
+        UpdateCheckedSelectionInfo();
     }
 
     private void ApplyRuleToCheckedOperations()
@@ -333,7 +334,7 @@ internal sealed class OperationsForm : Form
         dialog.Controls.Add(combo);dialog.Controls.Add(validate);dialog.Controls.Add(cancel);dialog.AcceptButton=validate;dialog.CancelButton=cancel;
         if(dialog.ShowDialog(this)!=DialogResult.OK||combo.SelectedItem is not RuleChoice choice)return;
         foreach(var row in selected){BankingRepository.SetOperationClassification(row.Id,choice.Rule.Type,choice.Rule.SubType,"Règle");row.Type=choice.Rule.Type;row.SubType=choice.Rule.SubType;row.ClassificationMode="Règle";row.DeleteSelected=false;}
-        ApplyFilters();MessageBox.Show($"{selected.Count} opération(s) typée(s) avec la règle « {choice.Rule.Type} / {choice.Rule.SubType} ».","QNB - Règle auto",MessageBoxButtons.OK,MessageBoxIcon.Information);
+        UpdateCheckedSelectionInfo();ApplyFilters();MessageBox.Show($"{selected.Count} opération(s) typée(s) avec la règle « {choice.Rule.Type} / {choice.Rule.SubType} ».","QNB - Règle auto",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 
     private void ApplyAutomaticTyping()
