@@ -307,8 +307,14 @@ internal sealed class OperationsForm : Form
         var rules=BankingRepository.LoadClassificationRules().Where(x=>x.Enabled).OrderBy(x=>x.Priority).ThenBy(x=>x.Type).ThenBy(x=>x.SubType).ToList();
         if(rules.Count==0){MessageBox.Show("Aucune règle automatique active.","QNB - Règle auto",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
         using var dialog=new Form{Text="Choisir une règle automatique",StartPosition=FormStartPosition.CenterParent,Size=new Size(620,180),MinimumSize=new Size(520,180),BackColor=Color.FromArgb(3,23,49),ForeColor=Color.White,Font=new Font("Segoe UI",10F)};
-        var combo=new ComboBox{Left=20,Top=25,Width=560,DropDownStyle=ComboBoxStyle.DropDownList,DisplayMember="Text"};
-        var choices=rules.Select(x=>new RuleChoice(x,$"{x.Type} / {x.SubType}  —  contient « {x.ContainsText} »")).ToList();combo.DataSource=choices;
+        var combo=new ComboBox{Left=20,Top=25,Width=560,DropDownStyle=ComboBoxStyle.DropDownList,DrawMode=DrawMode.OwnerDrawFixed,ItemHeight=27,DisplayMember="Text"};
+        var choices=rules.Select(x=>new RuleChoice(x,$"{x.Type} / {x.SubType}")).ToList();combo.DataSource=choices;
+        combo.DrawItem+=(s,e)=>{
+            if(e.Index<0||e.Index>=choices.Count)return;
+            e.DrawBackground();var item=choices[e.Index];var back=e.BackColor;var fore=e.ForeColor;
+            if(!string.IsNullOrWhiteSpace(item.Rule.CellColor))try{back=ColorTranslator.FromHtml(item.Rule.CellColor);fore=(back.R*299+back.G*587+back.B*114)/1000>140?Color.Black:Color.White;}catch{}
+            using var brush=new SolidBrush(back);e.Graphics.FillRectangle(brush,e.Bounds);TextRenderer.DrawText(e.Graphics,item.Text,e.Font,e.Bounds,fore,TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.EndEllipsis);e.DrawFocusRectangle();
+        };
         var validate=new Button{Text=$"Valider sur {selected.Count} opération(s)",Left=365,Top=75,Width=215,Height=34,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat,DialogResult=DialogResult.OK};
         var cancel=new Button{Text="Annuler",Left=255,Top=75,Width=100,Height=34,BackColor=Color.FromArgb(70,82,100),ForeColor=Color.White,FlatStyle=FlatStyle.Flat,DialogResult=DialogResult.Cancel};
         dialog.Controls.Add(combo);dialog.Controls.Add(validate);dialog.Controls.Add(cancel);dialog.AcceptButton=validate;dialog.CancelButton=cancel;
