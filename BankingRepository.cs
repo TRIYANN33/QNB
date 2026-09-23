@@ -30,6 +30,29 @@ internal static class BankingRepository
     private static string ConnectionString => $"Data Source={DatabasePath}";
     static BankingRepository() => InitializeDatabase();
 
+    public static string DatabaseFilePath => DatabasePath;
+
+    public static void BackupDatabase(string destinationPath)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? Root);
+        using var source=OpenConnection();
+        using var destination=new SqliteConnection($"Data Source={destinationPath}");
+        destination.Open();
+        source.BackupDatabase(destination);
+    }
+
+    public static void RestoreDatabase(string sourcePath)
+    {
+        if(!File.Exists(sourcePath))throw new FileNotFoundException("Fichier de sauvegarde introuvable.",sourcePath);
+        using var source=new SqliteConnection($"Data Source={sourcePath}");
+        source.Open();
+        using var check=source.CreateCommand();check.CommandText="PRAGMA integrity_check;";
+        if(!string.Equals(Convert.ToString(check.ExecuteScalar(),CultureInfo.InvariantCulture),"ok",StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("La sauvegarde SQLite est endommagée.");
+        using var destination=OpenConnection();
+        source.BackupDatabase(destination);
+    }
+
     private static void InitializeDatabase()
     {
         Directory.CreateDirectory(Root);
