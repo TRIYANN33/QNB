@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Drawing.Drawing2D;
 using ClosedXML.Excel;
 
 namespace QNB;
@@ -22,7 +23,9 @@ internal sealed class DataAnalysisForm : Form
         var journal=new Button{Text="Journal mensuel",Width=160,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(174,112,38),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};journal.Click+=(_,_)=>ExportJournal();panel.Controls.Add(journal);
         var typeJournal=new Button{Text="Journal par Type",Width=160,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(16,112,187),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};typeJournal.Click+=(_,_)=>ExportTypeJournal();panel.Controls.Add(typeJournal);
         var postJournal=new Button{Text="Journal annuel / Poste",Width=185,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(92,82,160),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};postJournal.Click+=(_,_)=>ExportAnnualPostJournal();panel.Controls.Add(postJournal);
-        _status.Margin=new Padding(0,22,0,0);_status.Width=680;panel.SetFlowBreak(journal,true);panel.Controls.Add(_status);
+        var pieButton=new Button{Text="Camemberts dépenses / recettes",Width=270,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(36,133,127),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        pieButton.Click+=(_,_)=>ShowMonthlyPieCharts();panel.Controls.Add(pieButton);
+        _status.Margin=new Padding(0,22,0,0);_status.Width=680;panel.SetFlowBreak(postJournal,true);panel.Controls.Add(_status);
         Controls.Add(panel);Controls.Add(title);
     }
     private void ExportAnnualPostJournal()
@@ -141,6 +144,86 @@ internal sealed class DataAnalysisForm : Form
         try{Process.Start(new ProcessStartInfo(save.FileName){UseShellExecute=true});}
         catch(Exception ex){MessageBox.Show($"Le journal a bien été créé, mais son ouverture automatique a échoué.\n\n{ex.Message}","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}
         MessageBox.Show("Le journal détaillé a été créé et ouvert dans Excel.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
+    }
+
+
+    private void ShowMonthlyPieCharts()
+    {
+        if(_from.Value.Date>_to.Value.Date){MessageBox.Show("La date de début doit être antérieure à la date de fin.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}
+        var cls=BankingRepository.LoadOperationClassifications();
+        var rows=BankingRepository.LoadImports().SelectMany(i=>i.Operations)
+            .Where(o=>o.Date.Date>=_from.Value.Date&&o.Date.Date<=_to.Value.Date)
+            .Select(o=>{cls.TryGetValue(o.Id,out var k);return new{Op=o,Type=string.IsNullOrWhiteSpace(k?.Type)?"Non typé":k.Type};}).ToList();
+        if(rows.Count==0){MessageBox.Show("Aucune opération sur cette période.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        var expenses=rows.Where(x=>x.Op.Amount<0).GroupBy(x=>x.Type)
+            .Select(g=>new PieSlice(g.Key,g.Sum(x=>Math.Abs(x.Op.Amount)))).OrderByDescending(x=>x.Amount).ToList();
+        var income=rows.Where(x=>x.Op.Amount>0).GroupBy(x=>x.Type)
+            .Select(g=>new PieSlice(g.Key,g.Sum(x=>x.Op.Amount))).OrderByDescending(x=>x.Amount).ToList();
+        using var dialog=new Form{Text=$"QNB - Dépenses et recettes du {_from.Value:dd/MM/yyyy} au {_to.Value:dd/MM/yyyy}",
+            StartPosition=FormStartPosition.CenterParent,Size=new Size(1200,740),MinimumSize=new Size(900,560),
+            BackColor=Color.FromArgb(3,23,49),ForeColor=Color.White,Font=new Font("Segoe UI",10F)};
+        var tabs=new TabControl{Dock=DockStyle.Fill,Padding=new Point(16,7)};
+        foreach(var (name,data) in new[]{("Dépenses",expenses),("Recettes",income)})
+        {
+            var page=new TabPage(name){BackColor=Color.White,ForeColor=Color.FromArgb(3,23,49)};
+            var chart=new PieChartPanel(data,name){Dock=DockStyle.Fill};
+            page.Controls.Add(chart);tabs.TabPages.Add(page);
+        }
+        dialog.Controls.Add(tabs);dialog.ShowDialog(this);
+    }
+
+    private sealed record PieSlice(string Name,decimal Amount);
+
+    private sealed class PieChartPanel : Panel
+    {
+        private static readonly Color[] Palette={
+            Color.FromArgb(32,116,190),Color.FromArgb(225,123,48),Color.FromArgb(48,154,112),
+            Color.FromArgb(145,99,190),Color.FromArgb(221,75,102),Color.FromArgb(61,170,180),
+            Color.FromArgb(210,169,49),Color.FromArgb(95,110,140)};
+        private readonly List<PieSlice> _slices;
+        private readonly string _title;
+        public PieChartPanel(List<PieSlice> slices,string title)
+        {
+            _slices=slices;_title=title;DoubleBuffered=true;AutoScroll=false;
+        }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            var g=e.Graphics;g.SmoothingMode=SmoothingMode.AntiAlias;
+            using var heading=new Font("Segoe UI Semibold",17F,FontStyle.Bold);
+            using var body=new Font("Segoe UI",10F);
+            using var small=new Font("Segoe UI",9F);
+            using var ink=new SolidBrush(Color.FromArgb(3,35,68));
+            var total=_slices.Sum(x=>x.Amount);
+            g.DrawString($"{_title} par Type",heading,ink,25,18);
+            g.DrawString($"Total : {total.ToString("N2",CultureInfo.GetCultureInfo("fr-FR"))} €",body,ink,27,58);
+            if(total<=0){g.DrawString("Aucune opération correspondante.",body,ink,30,115);return;}
+            var diameter=Math.Max(170,Math.Min(Math.Min(ClientSize.Width*0.48f,ClientSize.Height-155),440));
+            var pie=new RectangleF(30,105,diameter,diameter);
+            var start=-90f;
+            for(var i=0;i<_slices.Count;i++)
+            {
+                var angle=(float)(_slices[i].Amount/total*360m);
+                using var brush=new SolidBrush(Palette[i%Palette.Length]);
+                if(i==_slices.Count-1)angle=270f-start;
+                g.FillPie(brush,pie.X,pie.Y,pie.Width,pie.Height,start,angle);
+                start+=angle;
+            }
+            var legendX=pie.Right+28f;
+            var legendY=105f;
+            var available=Math.Max(170,ClientSize.Width-legendX-20);
+            for(var i=0;i<_slices.Count;i++)
+            {
+                var y=legendY+i*34f;
+                if(y>ClientSize.Height-24){g.DrawString($"… {_slices.Count-i} catégorie(s) supplémentaires",small,ink,legendX,y-5);break;}
+                using var brush=new SolidBrush(Palette[i%Palette.Length]);
+                g.FillRectangle(brush,legendX,y+3,14,14);
+                var percent=_slices[i].Amount/total*100m;
+                var label=$"{_slices[i].Name} : {_slices[i].Amount:N2} € ({percent:N1} %)";
+                var bounds=new RectangleF(legendX+22,y-2,available-22,32);
+                g.DrawString(label,small,ink,bounds);
+            }
+        }
     }
 
     private static Label Label(string s)=>new(){Text=s,AutoSize=true,ForeColor=Color.FromArgb(183,207,229),Margin=new Padding(8,7,5,0)};
