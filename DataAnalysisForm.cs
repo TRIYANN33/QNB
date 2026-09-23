@@ -25,7 +25,9 @@ internal sealed class DataAnalysisForm : Form
         var postJournal=new Button{Text="Journal annuel / Poste",Width=185,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(92,82,160),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};postJournal.Click+=(_,_)=>ExportAnnualPostJournal();panel.Controls.Add(postJournal);
         var pieButton=new Button{Text="Camemberts dépenses / recettes",Width=270,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(36,133,127),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
         pieButton.Click+=(_,_)=>ShowMonthlyPieCharts();panel.Controls.Add(pieButton);
-        _status.Margin=new Padding(0,22,0,0);_status.Width=680;panel.SetFlowBreak(postJournal,true);panel.Controls.Add(_status);
+        var excelPie=new Button{Text="Excel camemberts",Width=185,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(32,126,83),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        excelPie.Click+=(_,_)=>ExportPieChartsExcel();panel.Controls.Add(excelPie);
+        _status.Margin=new Padding(0,22,0,0);_status.Width=680;panel.SetFlowBreak(excelPie,true);panel.Controls.Add(_status);
         Controls.Add(panel);Controls.Add(title);
     }
     private void ExportAnnualPostJournal()
@@ -146,6 +148,83 @@ internal sealed class DataAnalysisForm : Form
         MessageBox.Show("Le journal détaillé a été créé et ouvert dans Excel.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 
+
+
+    private void ExportPieChartsExcel()
+    {
+        if(_from.Value.Date>_to.Value.Date){MessageBox.Show("La date de début doit être antérieure à la date de fin.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}
+        var classifications=BankingRepository.LoadOperationClassifications();
+        var rows=BankingRepository.LoadImports().SelectMany(i=>i.Operations)
+            .Where(o=>o.Date.Date>=_from.Value.Date&&o.Date.Date<=_to.Value.Date)
+            .Select(o=>{classifications.TryGetValue(o.Id,out var k);return new{Op=o,Type=string.IsNullOrWhiteSpace(k?.Type)?"Non typé":k.Type};}).ToList();
+        if(rows.Count==0){MessageBox.Show("Aucune opération sur cette période.","QNB",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        var expenses=rows.Where(x=>x.Op.Amount<0).GroupBy(x=>x.Type).Select(g=>new PieSlice(g.Key,g.Sum(x=>Math.Abs(x.Op.Amount)))).OrderByDescending(x=>x.Amount).ToList();
+        var income=rows.Where(x=>x.Op.Amount>0).GroupBy(x=>x.Type).Select(g=>new PieSlice(g.Key,g.Sum(x=>x.Op.Amount))).OrderByDescending(x=>x.Amount).ToList();
+        using var save=new SaveFileDialog{Filter="Classeur Excel (*.xlsx)|*.xlsx",FileName=$"QNB_Camemberts_{_from.Value:yyyyMMdd}_{_to.Value:yyyyMMdd}.xlsx"};
+        if(save.ShowDialog(this)!=DialogResult.OK)return;
+        using(var workbook=new XLWorkbook())
+        {
+            AddPieDataSheet(workbook,"Dépenses",expenses);
+            AddPieDataSheet(workbook,"Recettes",income);
+            workbook.SaveAs(save.FileName);
+        }
+        // ClosedXML 0.104 ne crée pas de graphiques : Excel ajoute les deux vrais camemberts au classeur.
+        object? excelObject=null;object? bookObject=null;
+        try
+        {
+            var excelType=Type.GetTypeFromProgID("Excel.Application");
+            if(excelType is null)throw new InvalidOperationException("Microsoft Excel doit être installé pour générer les graphiques.");
+            excelObject=Activator.CreateInstance(excelType);
+            if(excelObject is null)throw new InvalidOperationException("Impossible de démarrer Microsoft Excel.");
+            dynamic excel=excelObject;
+            excel.Visible=false;excel.DisplayAlerts=false;
+            bookObject=excel.Workbooks.Open(Path.GetFullPath(save.FileName));
+            dynamic book=bookObject;
+            AddExcelPieChart(book,"Dépenses",expenses.Count,"Dépenses par Type");
+            AddExcelPieChart(book,"Recettes",income.Count,"Recettes par Type");
+            book.Save();book.Close(false);bookObject=null;
+            excel.Quit();
+            _status.Text="Camemberts Excel créés : "+Path.GetFileName(save.FileName);
+            Process.Start(new ProcessStartInfo(save.FileName){UseShellExecute=true});
+        }
+        catch(Exception ex)
+        {
+            MessageBox.Show("Les données Excel ont été enregistrées, mais les graphiques ou l'ouverture automatique ont échoué. Vérifiez que Microsoft Excel est installé.\\n\\n"+ex.Message,
+                "QNB - Camemberts",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            if(bookObject is not null)try{((dynamic)bookObject).Close(false);}catch{}
+            if(excelObject is not null)try{((dynamic)excelObject).Quit();}catch{}
+            if(bookObject is not null && System.Runtime.InteropServices.Marshal.IsComObject(bookObject))System.Runtime.InteropServices.Marshal.FinalReleaseComObject(bookObject);
+            if(excelObject is not null && System.Runtime.InteropServices.Marshal.IsComObject(excelObject))System.Runtime.InteropServices.Marshal.FinalReleaseComObject(excelObject);
+        }
+    }
+
+    private static void AddPieDataSheet(XLWorkbook workbook,string name,List<PieSlice> slices)
+    {
+        var ws=workbook.Worksheets.Add(name);
+        ws.Cell(1,1).Value="Type";ws.Cell(1,2).Value="Montant (€)";
+        ws.Range(1,1,1,2).Style.Font.Bold=true;
+        for(var i=0;i<slices.Count;i++){ws.Cell(i+2,1).Value=slices[i].Name;ws.Cell(i+2,2).Value=slices[i].Amount;}
+        var totalRow=slices.Count+2;ws.Cell(totalRow,1).Value="TOTAL";ws.Cell(totalRow,2).Value=slices.Sum(x=>x.Amount);
+        ws.Range(totalRow,1,totalRow,2).Style.Font.Bold=true;
+        ws.Column(2).Style.NumberFormat.Format="#,##0.00 €";ws.Columns(1,2).AdjustToContents();
+    }
+
+    private static void AddExcelPieChart(dynamic book,string sheetName,int count,string title)
+    {
+        if(count==0)return;
+        dynamic sheet=book.Worksheets[sheetName];
+        dynamic chartObject=sheet.ChartObjects().Add(370,30,600,390);
+        dynamic chart=chartObject.Chart;
+        chart.ChartType=5; // xlPie
+        chart.SetSourceData(sheet.Range[sheet.Cells[1,1],sheet.Cells[count+1,2]]);
+        chart.HasTitle=true;chart.ChartTitle.Text=title;
+        chart.HasLegend=true;
+        dynamic series=chart.SeriesCollection(1);
+        series.ApplyDataLabels();
+    }
 
     private void ShowMonthlyPieCharts()
     {
