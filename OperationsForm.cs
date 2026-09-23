@@ -38,7 +38,7 @@ internal sealed class OperationsForm : Form
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 4, BackColor = BackColor };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 148F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 184F));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -50,9 +50,10 @@ internal sealed class OperationsForm : Form
         header.Controls.Add(_selectedOperationInfo, 1, 0);
         layout.Controls.Add(header, 0, 0);
 
-        var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = Color.FromArgb(4,36,73), Padding = new Padding(12,8,12,8) };
-        filters.RowStyles.Add(new RowStyle(SizeType.Percent,50F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,50F));
+        var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = Color.FromArgb(4,36,73), Padding = new Padding(12,8,12,8) };
+        filters.RowStyles.Add(new RowStyle(SizeType.Percent,33.33F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,33.33F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,33.34F));
         var filterRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
+        var navigationRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
         var actionRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
         _bankFilter = new ComboBox { Width = 220, DropDownStyle = ComboBoxStyle.DropDownList };
         _accountFilter = new ComboBox { Width = 270, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -86,10 +87,12 @@ internal sealed class OperationsForm : Form
         _goToNumber = new NumericUpDown { Width = 75, Minimum = 1, Maximum = Math.Max(1,_allRows.Count), Margin = new Padding(0,2,0,0) };
         var goButton = new Button { Text = "Aller", Width = 58, Height = 30, Margin = new Padding(4,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         goButton.Click += (_,_) => GoToNumber(); _goToNumber.KeyDown += (_,e)=>{if(e.KeyCode==Keys.Enter){GoToNumber();e.SuppressKeyPress=true;}};
-        actionRow.Controls.Add(_goToNumber); actionRow.Controls.Add(goButton);
+        navigationRow.Controls.Add(new Label { Text = "Navigation", AutoSize = true, ForeColor = Color.FromArgb(255,205,120), Font = new Font("Segoe UI Semibold",9.3F,FontStyle.Bold), Margin = new Padding(0,7,8,0) });
+        navigationRow.Controls.Add(new Label { Text = "N°", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(0,7,4,0) });
+        navigationRow.Controls.Add(_goToNumber); navigationRow.Controls.Add(goButton);
         var sortButton = new Button { Text = "Tri 3 champs", Width = 125, Height = 30, Margin = new Padding(18, 0, 0, 0), BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         sortButton.Click += (_, _) => ConfigureSort();
-        actionRow.Controls.Add(sortButton);
+        navigationRow.Controls.Add(sortButton);
         _deleteButton = new Button { Text = "✕  Supprimer cochées", Width = 180, Height = 34, Margin = new Padding(12, 0, 0, 0), BackColor = Color.FromArgb(190, 48, 58), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
         _deleteButton.FlatAppearance.BorderColor = Color.FromArgb(245, 115, 120);
         _deleteButton.FlatAppearance.BorderSize = 1;
@@ -108,7 +111,7 @@ internal sealed class OperationsForm : Form
         var uncheckAllButton = new Button { Text = "Tout décocher", Width = 115, Height = 34, Margin = new Padding(5,0,0,0), BackColor = Color.FromArgb(70,82,100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         uncheckAllButton.Click += (_, _) => SetDisplayedChecks(false); actionRow.Controls.Add(uncheckAllButton);
 
-        filters.Controls.Add(filterRow,0,0); filters.Controls.Add(actionRow,0,1);
+        filters.Controls.Add(filterRow,0,0); filters.Controls.Add(navigationRow,0,1); filters.Controls.Add(actionRow,0,2);
         layout.Controls.Add(filters, 0, 1);
 
         var summary = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Color.FromArgb(7, 43, 82), Padding = new Padding(14, 5, 14, 5) };
