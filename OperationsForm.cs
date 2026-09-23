@@ -17,6 +17,7 @@ internal sealed class OperationsForm : Form
     private readonly Label _countLabel;
     private readonly Label _totalLabel;
     private readonly TextBox _selectedOperationInfo;
+    private readonly Label _checkedSelectionInfo;
     private readonly NumericUpDown _goToNumber;
     private IReadOnlyList<MultiSortCriterion> _sortCriteria = Array.Empty<MultiSortCriterion>();
 
@@ -46,8 +47,11 @@ internal sealed class OperationsForm : Form
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         header.Controls.Add(new Label { Text = "OPÉRATIONS", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 23F, FontStyle.Bold) }, 0, 0);
-        _selectedOperationInfo = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(7,43,82), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 10F), Margin = new Padding(8,14,0,14), PlaceholderText = "Sélectionnez une opération : Date • Libellé • Détail" };
-        header.Controls.Add(_selectedOperationInfo, 1, 0);
+        var selectedPanel=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2,BackColor=Color.Transparent,Margin=new Padding(8,4,0,4)};
+        selectedPanel.RowStyles.Add(new RowStyle(SizeType.Percent,58F));selectedPanel.RowStyles.Add(new RowStyle(SizeType.Percent,42F));
+        _selectedOperationInfo = new TextBox { Dock = DockStyle.Fill, ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(7,43,82), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 10F), PlaceholderText = "Sélectionnez une opération : Date • Libellé • Détail" };
+        _checkedSelectionInfo=new Label{Dock=DockStyle.Fill,Text="Saisie sélectionnée : 0 opération",TextAlign=ContentAlignment.MiddleLeft,ForeColor=Color.FromArgb(242,187,72),Font=new Font("Segoe UI Semibold",9F,FontStyle.Bold)};
+        selectedPanel.Controls.Add(_selectedOperationInfo,0,0);selectedPanel.Controls.Add(_checkedSelectionInfo,0,1);header.Controls.Add(selectedPanel,1,0);
         layout.Controls.Add(header, 0, 0);
 
         var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = Color.FromArgb(4,36,73), Padding = new Padding(12,8,12,8) };
@@ -169,6 +173,7 @@ internal sealed class OperationsForm : Form
             _grid.EndEdit();
             row.DeleteSelected=!row.DeleteSelected;
             _grid.InvalidateRow(e.RowIndex);
+            UpdateCheckedSelectionInfo();
         };
         layout.Controls.Add(_grid, 0, 3);
 
@@ -220,6 +225,14 @@ internal sealed class OperationsForm : Form
             }
         }
         MessageBox.Show($"Le numéro {number} n'est pas présent dans la sélection actuelle.","QNB - Opérations",MessageBoxButtons.OK,MessageBoxIcon.Information);
+    }
+
+    private void UpdateCheckedSelectionInfo()
+    {
+        var selected=_allRows.Where(x=>x.DeleteSelected).ToList();
+        var debit=selected.Sum(x=>Math.Abs(x.Debit));
+        var credit=selected.Sum(x=>Math.Abs(x.Credit));
+        _checkedSelectionInfo.Text=selected.Count==0?"Saisie sélectionnée : 0 opération":$"Saisie sélectionnée : {selected.Count} opération(s)   •   Débit {debit:N2} €   •   Crédit {credit:N2} €";
     }
 
     private void UpdateSelectedOperationInfo()
