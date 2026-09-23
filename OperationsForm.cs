@@ -93,6 +93,10 @@ internal sealed class OperationsForm : Form
         var sortButton = new Button { Text = "Tri 3 champs", Width = 125, Height = 30, Margin = new Padding(18, 0, 0, 0), BackColor = Color.FromArgb(34, 149, 255), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         sortButton.Click += (_, _) => ConfigureSort();
         navigationRow.Controls.Add(sortButton);
+        var addButton = new Button { Text = "＋ Ajouter", Width = 105, Height = 34, Margin = new Padding(0,0,0,0), BackColor = Color.FromArgb(25,130,105), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        addButton.Click += (_, _) => AddManualOperation(); actionRow.Controls.Add(addButton);
+        var duplicateButton = new Button { Text = "Dupliquer ligne", Width = 125, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        duplicateButton.Click += (_, _) => DuplicateCurrentOperation(); actionRow.Controls.Add(duplicateButton);
         _deleteButton = new Button { Text = "✕  Supprimer cochées", Width = 180, Height = 34, Margin = new Padding(12, 0, 0, 0), BackColor = Color.FromArgb(190, 48, 58), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
         _deleteButton.FlatAppearance.BorderColor = Color.FromArgb(245, 115, 120);
         _deleteButton.FlatAppearance.BorderSize = 1;
@@ -169,6 +173,38 @@ internal sealed class OperationsForm : Form
         layout.Controls.Add(_grid, 0, 3);
 
         Controls.Add(layout);
+        RefreshAccountFilter();
+    }
+
+
+    private void AddManualOperation()
+    {
+        var imports=BankingRepository.LoadImports();
+        if(imports.Count==0){MessageBox.Show("Aucun compte bancaire disponible. Importez d'abord un compte.","QNB - Opérations",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        using var dialog=new ManualOperationForm(imports,null);
+        if(dialog.ShowDialog(this)!=DialogResult.OK)return;
+        BankingRepository.AddManualOperation(dialog.SelectedImport,dialog.Operation);
+        ReloadOperations();
+    }
+
+    private void DuplicateCurrentOperation()
+    {
+        if(_grid.CurrentRow?.DataBoundItem is not OperationRow row){MessageBox.Show("Sélectionnez la ligne à dupliquer.","QNB - Opérations",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        var imports=BankingRepository.LoadImports();
+        var source=imports.FirstOrDefault(i=>i.Operations.Any(o=>o.Id==row.Id));
+        var operation=source?.Operations.FirstOrDefault(o=>o.Id==row.Id);
+        if(source is null||operation is null)return;
+        using var dialog=new ManualOperationForm(imports,(source,operation));
+        if(dialog.ShowDialog(this)!=DialogResult.OK)return;
+        BankingRepository.AddManualOperation(dialog.SelectedImport,dialog.Operation);
+        ReloadOperations();
+    }
+
+    private void ReloadOperations()
+    {
+        var classifications=BankingRepository.LoadOperationClassifications();
+        _allRows.Clear();
+        _allRows.AddRange(BankingRepository.LoadImports().SelectMany(import=>import.Operations.Select(operation=>new OperationRow(import,operation,classifications.TryGetValue(operation.Id,out var classification)?classification:null))).OrderByDescending(x=>x.Date));
         RefreshAccountFilter();
     }
 
