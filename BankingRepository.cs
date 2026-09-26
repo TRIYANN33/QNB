@@ -182,6 +182,49 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
         cmd.CommandText=@"INSERT INTO Accounts (Id,BankName,AccountName,AccountReference,Holder,Type,SourceDate) VALUES ($id,$bank,$name,$reference,$holder,$type,$sourceDate) ON CONFLICT(Id) DO UPDATE SET BankName=excluded.BankName,AccountName=excluded.AccountName,AccountReference=excluded.AccountReference,Holder=excluded.Holder,Type=excluded.Type,SourceDate=excluded.SourceDate;";
         cmd.Parameters.AddWithValue("$id",a.Id.ToString());cmd.Parameters.AddWithValue("$bank",a.BankName);cmd.Parameters.AddWithValue("$name",a.AccountName);cmd.Parameters.AddWithValue("$reference",a.AccountReference);cmd.Parameters.AddWithValue("$holder",a.Holder);cmd.Parameters.AddWithValue("$type",(int)a.Type);cmd.Parameters.AddWithValue("$sourceDate",a.SourceDate.HasValue?a.SourceDate.Value.Date.ToString("O",CultureInfo.InvariantCulture):DBNull.Value);cmd.ExecuteNonQuery();
     }
+    public static int CountAccountOperations(Guid id)
+    {
+        using var c=OpenConnection();using var cmd=c.CreateCommand();
+        cmd.CommandText="SELECT COUNT(*) FROM Operations o JOIN Imports i ON i.Id=o.ImportId WHERE i.AccountId=$id";
+        cmd.Parameters.AddWithValue("$id",id.ToString());return Convert.ToInt32(cmd.ExecuteScalar(),CultureInfo.InvariantCulture);
+    }
+    public static void EditAccount(BankAccountProfile account)
+    {
+        if(string.IsNullOrWhiteSpace(account.BankName)||string.IsNullOrWhiteSpace(account.AccountName))throw new InvalidOperationException("Banque et nom du compte obligatoires.");
+        using var c=OpenConnection();using var t=c.BeginTransaction();
+        SaveAccountInternal(c,t,account);
+        using var cmd=c.CreateCommand();cmd.Transaction=t;
+        cmd.CommandText="UPDATE Imports SET BankName=$bank,AccountDisplayName=$name,AccountReference=$reference,AccountHolder=$holder,AccountType=$type WHERE AccountId=$id";
+        cmd.Parameters.AddWithValue("$id",account.Id.ToString());cmd.Parameters.AddWithValue("$bank",account.BankName.Trim());cmd.Parameters.AddWithValue("$name",account.AccountName.Trim());cmd.Parameters.AddWithValue("$reference",account.AccountReference.Trim());cmd.Parameters.AddWithValue("$holder",account.Holder.Trim());cmd.Parameters.AddWithValue("$type",(int)account.Type);cmd.ExecuteNonQuery();t.Commit();
+    }
+    public static void MergeAccounts(Guid sourceId,Guid targetId)
+    {
+        if(sourceId==targetId)throw new InvalidOperationException("Choisissez deux comptes différents.");
+        using var c=OpenConnection();using var t=c.BeginTransaction();
+        BankAccountProfile Read(Guid id)
+        {
+            using var cmd=c.CreateCommand();cmd.Transaction=t;cmd.CommandText="SELECT BankName,AccountName,AccountReference,Holder,Type,SourceDate FROM Accounts WHERE Id=$id";cmd.Parameters.AddWithValue("$id",id.ToString());
+            using var r=cmd.ExecuteReader();if(!r.Read())throw new InvalidOperationException("Compte introuvable.");
+            return new BankAccountProfile{Id=id,BankName=r.GetString(0),AccountName=r.GetString(1),AccountReference=r.GetString(2),Holder=r.GetString(3),Type=(BankAccountType)r.GetInt32(4),SourceDate=r.IsDBNull(5)?null:DateTime.Parse(r.GetString(5),CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind)};
+        }
+        var source=Read(sourceId);var target=Read(targetId);
+        using(var move=c.CreateCommand())
+        {
+            move.Transaction=t;
+            move.CommandText="UPDATE Imports SET AccountId=$target,BankName=$bank,AccountDisplayName=$name,AccountReference=$reference,AccountHolder=$holder,AccountType=$type WHERE AccountId=$source";
+            move.Parameters.AddWithValue("$target",targetId.ToString());move.Parameters.AddWithValue("$source",sourceId.ToString());
+            move.Parameters.AddWithValue("$bank",target.BankName);move.Parameters.AddWithValue("$name",target.AccountName);move.Parameters.AddWithValue("$reference",target.AccountReference);move.Parameters.AddWithValue("$holder",target.Holder);move.Parameters.AddWithValue("$type",(int)target.Type);move.ExecuteNonQuery();
+        }
+        using(var delete=c.CreateCommand()){delete.Transaction=t;delete.CommandText="DELETE FROM Accounts WHERE Id=$id";delete.Parameters.AddWithValue("$id",sourceId.ToString());delete.ExecuteNonQuery();}
+        t.Commit();
+    }
+    public static void DeleteEmptyAccount(Guid id)
+    {
+        using var c=OpenConnection();using var t=c.BeginTransaction();
+        using(var check=c.CreateCommand()){check.Transaction=t;check.CommandText="SELECT COUNT(*) FROM Imports WHERE AccountId=$id";check.Parameters.AddWithValue("$id",id.ToString());if(Convert.ToInt64(check.ExecuteScalar(),CultureInfo.InvariantCulture)>0)throw new InvalidOperationException("Ce compte possède des relevés. Fusionnez-le d'abord avec un autre compte pour conserver toutes les données.");}
+        using(var cmd=c.CreateCommand()){cmd.Transaction=t;cmd.CommandText="DELETE FROM Accounts WHERE Id=$id";cmd.Parameters.AddWithValue("$id",id.ToString());cmd.ExecuteNonQuery();}t.Commit();
+    }
+
     public static string SaveImport(BankImportResult result){using var c=OpenConnection();using var t=c.BeginTransaction();using var cmd=c.CreateCommand();cmd.Transaction=t;cmd.CommandText=@"INSERT INTO Imports (SourceFile,AccountId,BankName,AccountDisplayName,AccountReference,AccountHolder,AccountType,BalanceDate,Balance,Currency,ImportedAt) VALUES ($source,$accountId,$bank,$display,$reference,$holder,$type,$balanceDate,$balance,$currency,$importedAt); SELECT last_insert_rowid();";cmd.Parameters.AddWithValue("$source",result.SourceFile);cmd.Parameters.AddWithValue("$accountId",(object?)result.AccountId?.ToString()??DBNull.Value);cmd.Parameters.AddWithValue("$bank",result.BankName);cmd.Parameters.AddWithValue("$display",result.AccountDisplayName);cmd.Parameters.AddWithValue("$reference",result.AccountReference);cmd.Parameters.AddWithValue("$holder",result.AccountHolder);cmd.Parameters.AddWithValue("$type",(int)result.AccountType);cmd.Parameters.AddWithValue("$balanceDate",result.BalanceDate.HasValue?result.BalanceDate.Value.ToString("O",CultureInfo.InvariantCulture):DBNull.Value);cmd.Parameters.AddWithValue("$balance",result.Balance.HasValue?result.Balance.Value:DBNull.Value);cmd.Parameters.AddWithValue("$currency",result.Currency);cmd.Parameters.AddWithValue("$importedAt",DateTime.Now.ToString("O",CultureInfo.InvariantCulture));var importId=Convert.ToInt64(cmd.ExecuteScalar(),CultureInfo.InvariantCulture);foreach(var o in result.Operations){using var op=c.CreateCommand();op.Transaction=t;op.CommandText=@"INSERT INTO Operations (ImportId,OperationDate,Nature,Debit,Credit,Currency,ValueDate,InterbankLabel,Details,IsDeferredCardSummary) VALUES ($importId,$date,$nature,$debit,$credit,$currency,$valueDate,$label,$details,$deferred);";op.Parameters.AddWithValue("$importId",importId);op.Parameters.AddWithValue("$date",o.Date.ToString("O",CultureInfo.InvariantCulture));op.Parameters.AddWithValue("$nature",o.Nature);op.Parameters.AddWithValue("$debit",o.Debit);op.Parameters.AddWithValue("$credit",o.Credit);op.Parameters.AddWithValue("$currency",o.Currency);op.Parameters.AddWithValue("$valueDate",o.ValueDate.HasValue?o.ValueDate.Value.ToString("O",CultureInfo.InvariantCulture):DBNull.Value);op.Parameters.AddWithValue("$label",o.InterbankLabel);op.Parameters.AddWithValue("$details",o.Details);op.Parameters.AddWithValue("$deferred",o.IsDeferredCardSummary?1:0);op.ExecuteNonQuery();}t.Commit();return $"sqlite://qnb.db/import/{importId}";}
     public static List<BankImportResult> LoadImports(){var results=new List<(long Id,BankImportResult Result)>();using var c=OpenConnection();using(var cmd=c.CreateCommand()){cmd.CommandText="SELECT Id,SourceFile,AccountId,BankName,AccountDisplayName,AccountReference,AccountHolder,AccountType,BalanceDate,Balance,Currency FROM Imports ORDER BY Id";using var r=cmd.ExecuteReader();while(r.Read()){var x=new BankImportResult{SourceFile=r.GetString(1),AccountId=r.IsDBNull(2)?null:Guid.Parse(r.GetString(2)),BankName=r.GetString(3),AccountDisplayName=r.GetString(4),AccountReference=r.GetString(5),AccountHolder=r.GetString(6),AccountType=(BankAccountType)r.GetInt32(7),BalanceDate=r.IsDBNull(8)?null:DateTime.Parse(r.GetString(8),CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind),Balance=r.IsDBNull(9)?null:Convert.ToDecimal(r.GetDouble(9),CultureInfo.InvariantCulture),Currency=r.GetString(10)};results.Add((r.GetInt64(0),x));}}foreach(var item in results){using var cmd=c.CreateCommand();cmd.CommandText="SELECT Id,OperationDate,Nature,Debit,Credit,Currency,ValueDate,InterbankLabel,Details,IsDeferredCardSummary FROM Operations WHERE ImportId=$id ORDER BY Id";cmd.Parameters.AddWithValue("$id",item.Id);using var r=cmd.ExecuteReader();while(r.Read())item.Result.Operations.Add(new BankOperation{Id=r.GetInt64(0),Date=DateTime.Parse(r.GetString(1),CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind),Nature=r.GetString(2),Debit=Convert.ToDecimal(r.GetDouble(3),CultureInfo.InvariantCulture),Credit=Convert.ToDecimal(r.GetDouble(4),CultureInfo.InvariantCulture),Currency=r.GetString(5),ValueDate=r.IsDBNull(6)?null:DateTime.Parse(r.GetString(6),CultureInfo.InvariantCulture,DateTimeStyles.RoundtripKind),InterbankLabel=r.GetString(7),Details=r.GetString(8),IsDeferredCardSummary=r.GetInt32(9)==1});}return results.Select(x=>x.Result).ToList();}
     public static void AddManualOperation(BankImportResult target, BankOperation operation)
