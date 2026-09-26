@@ -196,6 +196,25 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
         cmd.Parameters.AddWithValue("$importId",importId);cmd.Parameters.AddWithValue("$date",operation.Date.ToString("O",CultureInfo.InvariantCulture));cmd.Parameters.AddWithValue("$nature",operation.Nature??string.Empty);cmd.Parameters.AddWithValue("$debit",operation.Debit);cmd.Parameters.AddWithValue("$credit",operation.Credit);cmd.Parameters.AddWithValue("$currency",operation.Currency??"EUR");cmd.Parameters.AddWithValue("$valueDate",operation.ValueDate.HasValue?operation.ValueDate.Value.ToString("O",CultureInfo.InvariantCulture):DBNull.Value);cmd.Parameters.AddWithValue("$label",operation.InterbankLabel??string.Empty);cmd.Parameters.AddWithValue("$details",operation.Details??string.Empty);cmd.Parameters.AddWithValue("$deferred",operation.IsDeferredCardSummary?1:0);cmd.ExecuteNonQuery();
     }
 
+    public static void UpdateOperation(long id, BankImportResult target, BankOperation operation, string type, string subType)
+    {
+        using var c=OpenConnection();
+        using var find=c.CreateCommand();
+        find.CommandText="SELECT Id FROM Imports WHERE BankName=$bank AND AccountReference=$reference AND AccountDisplayName=$display ORDER BY Id DESC LIMIT 1";
+        find.Parameters.AddWithValue("$bank",target.BankName);find.Parameters.AddWithValue("$reference",target.AccountReference);find.Parameters.AddWithValue("$display",target.AccountDisplayName);
+        var value=find.ExecuteScalar();
+        if(value is null)throw new InvalidOperationException("Compte bancaire introuvable.");
+        using var cmd=c.CreateCommand();
+        cmd.CommandText=@"UPDATE Operations SET ImportId=$importId,OperationDate=$date,Nature=$nature,Debit=$debit,Credit=$credit,Currency=$currency,ValueDate=$valueDate,InterbankLabel=$label,Details=$details,IsDeferredCardSummary=$deferred,OperationType=$type,OperationSubType=$sub,ClassificationMode='Manuel' WHERE Id=$id";
+        cmd.Parameters.AddWithValue("$id",id);cmd.Parameters.AddWithValue("$importId",Convert.ToInt64(value,CultureInfo.InvariantCulture));
+        cmd.Parameters.AddWithValue("$date",operation.Date.ToString("O",CultureInfo.InvariantCulture));cmd.Parameters.AddWithValue("$nature",operation.Nature);
+        cmd.Parameters.AddWithValue("$debit",operation.Debit);cmd.Parameters.AddWithValue("$credit",operation.Credit);
+        cmd.Parameters.AddWithValue("$currency",operation.Currency);cmd.Parameters.AddWithValue("$valueDate",operation.ValueDate.HasValue?operation.ValueDate.Value.ToString("O",CultureInfo.InvariantCulture):DBNull.Value);
+        cmd.Parameters.AddWithValue("$label",operation.InterbankLabel);cmd.Parameters.AddWithValue("$details",operation.Details);
+        cmd.Parameters.AddWithValue("$deferred",operation.IsDeferredCardSummary?1:0);cmd.Parameters.AddWithValue("$type",type);cmd.Parameters.AddWithValue("$sub",subType);
+        if(cmd.ExecuteNonQuery()!=1)throw new InvalidOperationException("L'opération à modifier est introuvable.");
+    }
+
     public static void DeleteOperations(IEnumerable<long> operationIds)
     {
         var ids = operationIds.Distinct().ToList();
