@@ -83,9 +83,12 @@ internal sealed class DuplicateAnalysisForm : Form
         var sort=new Button{Text="Tri 3 champs",Width=135,Height=34,BackColor=Color.FromArgb(16,112,187),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
         var notDuplicate=new Button{Text="Pas un doublon",Width=145,Height=34,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
         var showExcluded=new Button{Text="Réafficher les exclus",Width=165,Height=34,BackColor=Color.FromArgb(100,90,150),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        var checkAll=new Button{Text="Tout cocher",Width=115,Height=34,BackColor=Color.FromArgb(16,112,187),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        var uncheckAll=new Button{Text="Tout décocher",Width=125,Height=34,BackColor=Color.FromArgb(51,73,99),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
         var delete=new Button{Text="✕ Supprimer cochées",Width=185,Height=34,BackColor=Color.FromArgb(190,48,58),ForeColor=Color.White,Font=new Font("Segoe UI Semibold",9.3F,FontStyle.Bold),FlatStyle=FlatStyle.Flat};
+        checkAll.Click+=(_,_)=>SetAllChecked(true); uncheckAll.Click+=(_,_)=>SetAllChecked(false);
         refresh.Click+=(_,_)=>LoadCandidates(); sort.Click+=(_,_)=>ConfigureSort(); delete.Click+=(_,_)=>DeleteChecked(); notDuplicate.Click+=(_,_)=>MarkNotDuplicate(); showExcluded.Click+=(_,_)=>RestoreExcluded();
-        footer.Controls.Add(close); footer.Controls.Add(refresh); footer.Controls.Add(sort); footer.Controls.Add(showExcluded); footer.Controls.Add(notDuplicate); footer.Controls.Add(delete);
+        footer.Controls.Add(close); footer.Controls.Add(refresh); footer.Controls.Add(sort); footer.Controls.Add(showExcluded); footer.Controls.Add(notDuplicate); footer.Controls.Add(uncheckAll); footer.Controls.Add(checkAll); footer.Controls.Add(delete);
         _footerSummary=new Label{AutoSize=true,ForeColor=Color.White,Font=new Font("Segoe UI Semibold",10F,FontStyle.Bold),Margin=new Padding(18,8,24,0),TextAlign=ContentAlignment.MiddleLeft};
         footer.Controls.Add(_footerSummary);
         Controls.Add(_grid); Controls.Add(footer); Controls.Add(header); Shown+=(_,_)=>LoadCandidates();
@@ -156,6 +159,15 @@ internal sealed class DuplicateAnalysisForm : Form
     {
         var answer=MessageBox.Show("Réafficher toutes les paires précédemment marquées « Pas un doublon » ?","QNB - Doublons",MessageBoxButtons.YesNo,MessageBoxIcon.Question);
         if(answer!=DialogResult.Yes)return;BankingRepository.ClearDuplicateExclusions();LoadCandidates();
+    }
+
+    private void SetAllChecked(bool value)
+    {
+        _grid.EndEdit();
+        _groupCheckedRows=true;
+        try { foreach(DataGridViewRow row in _grid.Rows) row.Cells["Choix"].Value=value; }
+        finally { _groupCheckedRows=false; }
+        UpdateSelectedOperationInfo();
     }
 
     private void GroupCheckedRows()
