@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "QNB": {
+      "commandName": "Project",
+      "hotReloadEnabled": false
+    }
+  }
+}
