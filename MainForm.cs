@@ -224,6 +224,7 @@ public sealed class MainForm : Form
             if (text.StartsWith("Importation", StringComparison.OrdinalIgnoreCase)) ImportDocument();
             else if (string.Equals(text, "Sources opérations", StringComparison.OrdinalIgnoreCase)) ShowOperationSources();
             else if (string.Equals(text, "Opérations", StringComparison.OrdinalIgnoreCase)) ShowOperations();
+            else if (string.Equals(text, "Listes", StringComparison.OrdinalIgnoreCase)) ShowAccountManagement();
             else if (string.Equals(text, "Analyser les doublons", StringComparison.OrdinalIgnoreCase)) ShowDuplicateAnalysis();
             else if (string.Equals(text, "Analyse des données", StringComparison.OrdinalIgnoreCase)) ShowDataAnalysis();
             else if (string.Equals(text, "Règles auto", StringComparison.OrdinalIgnoreCase)) ShowClassificationRules();
@@ -255,6 +256,13 @@ public sealed class MainForm : Form
             else MessageBox.Show($"Action « {text} »", "QNB", MessageBoxButtons.OK, MessageBoxIcon.Information);
         };
         return button;
+    }
+
+    private void ShowAccountManagement()
+    {
+        using var dialog = new AccountManagementForm();
+        dialog.ShowDialog(this);
+        RefreshDashboardStats();
     }
 
     private void ShowDatabaseBackup()
