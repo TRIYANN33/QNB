@@ -8,6 +8,10 @@ internal sealed class OperationsForm : Form
     private readonly ComboBox _bankFilter;
     private readonly ComboBox _accountFilter;
     private readonly TextBox _searchBox;
+    private readonly HashSet<string> _checkedBanks = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _checkedAccounts = new(StringComparer.OrdinalIgnoreCase);
+    private bool _showCheckedBankAccounts;
+    private bool _showCheckedOperations;
     private readonly DateTimePicker _periodFrom;
     private readonly DateTimePicker _periodTo;
     private readonly CheckBox _periodEnabled;
@@ -70,6 +74,12 @@ internal sealed class OperationsForm : Form
         filterRow.Controls.Add(_bankFilter);
         filterRow.Controls.Add(new Label { Text = "Compte", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
         filterRow.Controls.Add(_accountFilter);
+        var chooseBanks = new Button { Text = "☑ Banques...", Width = 115, Height = 30, Margin = new Padding(8,0,0,0) };
+        chooseBanks.Click += (_, _) => ChooseValues("Banques à afficher", _allRows.Select(x => x.Bank), _checkedBanks);
+        filterRow.Controls.Add(chooseBanks);
+        var chooseAccounts = new Button { Text = "☑ Comptes...", Width = 115, Height = 30, Margin = new Padding(5,0,0,0) };
+        chooseAccounts.Click += (_, _) => ChooseValues("Comptes à afficher", _allRows.Select(x => x.Account), _checkedAccounts);
+        filterRow.Controls.Add(chooseAccounts);
         filterRow.Controls.Add(new Label { Text = "Recherche", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
         _searchBox = new TextBox { Width = 240, PlaceholderText = "Rechercher dans toutes les colonnes..." };
         _searchBox.TextChanged += (_, _) => ApplyFilters();
@@ -108,6 +118,15 @@ internal sealed class OperationsForm : Form
         _deleteButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(155, 35, 45);
         _deleteButton.Click += (_, _) => DeleteCheckedOperations();
         actionRow.Controls.Add(_deleteButton);
+        var showBankAccounts = new Button { Text = "Afficher banques/comptes cochés", Width = 225, Height = 34, Margin = new Padding(8,0,0,0) };
+        showBankAccounts.Click += (_, _) => { _showCheckedBankAccounts = true; ApplyFilters(); };
+        actionRow.Controls.Add(showBankAccounts);
+        var showOperations = new Button { Text = "Afficher opérations cochées", Width = 205, Height = 34, Margin = new Padding(5,0,0,0) };
+        showOperations.Click += (_, _) => { _grid.EndEdit(); _showCheckedOperations = true; ApplyFilters(); };
+        actionRow.Controls.Add(showOperations);
+        var showAll = new Button { Text = "Tout afficher", Width = 105, Height = 34, Margin = new Padding(5,0,0,0) };
+        showAll.Click += (_, _) => { _showCheckedBankAccounts = false; _showCheckedOperations = false; _bankFilter.SelectedIndex = 0; _searchBox.Clear(); _periodEnabled.Checked = false; _withoutTypeFilter.Checked = false; RefreshAccountFilter(); };
+        actionRow.Controls.Add(showAll);
         var manualButton = new Button { Text = "Typage manuel", Width = 130, Height = 34, Margin = new Padding(12,0,0,0), BackColor = Color.FromArgb(108,76,170), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         manualButton.Click += (_, _) => ClassifySelectedManually(); actionRow.Controls.Add(manualButton);
         var autoButton = new Button { Text = "Typage auto", Width = 115, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(25,130,105), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
@@ -147,6 +166,7 @@ internal sealed class OperationsForm : Form
 
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "N°", DataPropertyName = nameof(OperationRow.Number), Width = 55, FillWeight = 42, ReadOnly = true, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Choix", DataPropertyName = nameof(OperationRow.DeleteSelected), Width = 55, FillWeight = 42, ReadOnly = false, SortMode = DataGridViewColumnSortMode.NotSortable });
+        _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Afficher", DataPropertyName = nameof(OperationRow.DisplaySelected), Width = 65, FillWeight = 48, ReadOnly = false, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Banque", DataPropertyName = nameof(OperationRow.Bank), FillWeight = 90, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Compte", DataPropertyName = nameof(OperationRow.Account), FillWeight = 110, SortMode = DataGridViewColumnSortMode.NotSortable });
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Date", DataPropertyName = nameof(OperationRow.Date), FillWeight = 65, SortMode = DataGridViewColumnSortMode.NotSortable, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
@@ -372,6 +392,23 @@ internal sealed class OperationsForm : Form
         ApplyFilters();
     }
 
+    private void ChooseValues(string title, IEnumerable<string> values, HashSet<string> selected)
+    {
+        using var dialog = new Form { Text = title, StartPosition = FormStartPosition.CenterParent, Size = new Size(440, 520), MinimumSize = new Size(350, 350), BackColor = Color.FromArgb(3,23,49), ForeColor = Color.White };
+        var list = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, BackColor = Color.FromArgb(7,43,82), ForeColor = Color.White, BorderStyle = BorderStyle.None };
+        foreach (var value in values.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x))
+            list.Items.Add(value, selected.Contains(value));
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 48, FlowDirection = FlowDirection.RightToLeft };
+        var ok = new Button { Text = "Valider", Width = 90, DialogResult = DialogResult.OK };
+        var cancel = new Button { Text = "Annuler", Width = 90, DialogResult = DialogResult.Cancel };
+        buttons.Controls.Add(ok); buttons.Controls.Add(cancel);
+        dialog.Controls.Add(list); dialog.Controls.Add(buttons); dialog.AcceptButton = ok; dialog.CancelButton = cancel;
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        selected.Clear();
+        foreach (var item in list.CheckedItems) selected.Add(item.ToString()!);
+        if (_showCheckedBankAccounts) ApplyFilters();
+    }
+
     private void RefreshAccountFilter()
     {
         var selectedBank = _bankFilter.SelectedItem?.ToString();
@@ -390,6 +427,12 @@ internal sealed class OperationsForm : Form
         IEnumerable<OperationRow> rows = _allRows;
         if (!string.IsNullOrWhiteSpace(bank) && bank != "Toutes les banques") rows = rows.Where(x => x.Bank == bank);
         if (!string.IsNullOrWhiteSpace(account) && account != "Tous les comptes") rows = rows.Where(x => x.Account == account);
+        if (_showCheckedBankAccounts)
+        {
+            if (_checkedBanks.Count > 0) rows = rows.Where(x => _checkedBanks.Contains(x.Bank));
+            if (_checkedAccounts.Count > 0) rows = rows.Where(x => _checkedAccounts.Contains(x.Account));
+        }
+        if (_showCheckedOperations) rows = rows.Where(x => x.DisplaySelected);
         if (_withoutTypeFilter.Checked) rows = rows.Where(x => string.IsNullOrWhiteSpace(x.Type));
         if (_periodEnabled.Checked)
         {
@@ -441,6 +484,7 @@ internal sealed class OperationsForm : Form
         public long Id { get; }
         public int Number { get; set; }
         public bool DeleteSelected { get; set; }
+        public bool DisplaySelected { get; set; }
         public string Bank { get; }
         public string Account { get; }
         public DateTime Date { get; }
