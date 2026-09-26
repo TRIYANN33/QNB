@@ -109,6 +109,8 @@ internal sealed class OperationsForm : Form
         navigationRow.Controls.Add(sortButton);
         var addButton = new Button { Text = "＋ Ajouter", Width = 105, Height = 34, Margin = new Padding(0,0,0,0), BackColor = Color.FromArgb(25,130,105), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         addButton.Click += (_, _) => AddManualOperation(); actionRow.Controls.Add(addButton);
+        var editButton = new Button { Text = "Modifier", Width = 100, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+        editButton.Click += (_, _) => EditCurrentOperation(); actionRow.Controls.Add(editButton);
         var duplicateButton = new Button { Text = "Dupliquer ligne", Width = 125, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         duplicateButton.Click += (_, _) => DuplicateCurrentOperation(); actionRow.Controls.Add(duplicateButton);
         _deleteButton = new Button { Text = "✕  Supprimer cochées", Width = 180, Height = 34, Margin = new Padding(12, 0, 0, 0), BackColor = Color.FromArgb(190, 48, 58), ForeColor = Color.White, Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
@@ -209,6 +211,22 @@ internal sealed class OperationsForm : Form
         using var dialog=new ManualOperationForm(imports,null);
         if(dialog.ShowDialog(this)!=DialogResult.OK)return;
         BankingRepository.AddManualOperation(dialog.SelectedImport,dialog.Operation);
+        ReloadOperations();
+    }
+
+    private void EditCurrentOperation()
+    {
+        _grid.EndEdit();
+        if(_grid.CurrentRow?.DataBoundItem is not OperationRow row){MessageBox.Show("Sélectionnez une opération à modifier.","QNB - Opérations",MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+        var imports=BankingRepository.LoadImports();
+        var source=imports.FirstOrDefault(i=>i.Operations.Any(x=>x.Id==row.Id));
+        var operation=source?.Operations.FirstOrDefault(x=>x.Id==row.Id);
+        if(source is null||operation is null)return;
+        var classifications=BankingRepository.LoadOperationClassifications();
+        classifications.TryGetValue(row.Id,out var classification);
+        using var dialog=new ManualOperationForm(imports,(source,operation),true,classification);
+        if(dialog.ShowDialog(this)!=DialogResult.OK)return;
+        BankingRepository.UpdateOperation(row.Id,dialog.SelectedImport,dialog.Operation,dialog.OperationType,dialog.OperationSubType);
         ReloadOperations();
     }
 
