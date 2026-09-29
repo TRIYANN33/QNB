@@ -1,0 +1,31 @@
+name: Build QNB v1.3.0 Windows x64
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - release/qnb-v1.3.0-net8
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore QNB.csproj -r win-x64
+      - name: Publish standalone EXE
+        run: dotnet publish QNB.csproj -c Release -r win-x64 --no-restore --self-contained true -p:PublishSingleFile=true -o publish
+      - name: Verify EXE
+        shell: pwsh
+        run: |
+          if (!(Test-Path publish/QNB.exe)) { throw "QNB.exe missing" }
+          Get-Item publish/QNB.exe | Select-Object Name,Length
+      - name: Upload standalone EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: QNB-v1.3.0-win-x64
+          path: publish/QNB.exe
+          if-no-files-found: error
