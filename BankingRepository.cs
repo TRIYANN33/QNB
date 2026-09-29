@@ -70,7 +70,7 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
         EnsureOperationClassificationColumns(connection);
         EnsureClassificationRuleColorColumn(connection);
         EnsureDefaultClassificationRules(connection);
-        ApplyOneTimeReset(connection);
+        // Existing user data must never be reset during startup or upgrades; schema migrations above are additive.
     }
 
     private static void EnsureSourceDateColumn(SqliteConnection connection)
