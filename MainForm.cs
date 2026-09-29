@@ -165,7 +165,7 @@ public sealed class MainForm : Form
         AddDetailRow(details, 0, "Date de création", FormatDateTime(usageInfo.CreationDate));
         AddDetailRow(details, 1, "Dernière utilisation", usageInfo.PreviousUseDate.HasValue ? FormatDateTime(usageInfo.PreviousUseDate.Value) : "Première utilisation");
         AddDetailRow(details, 2, "Dernière modification", FormatDateTime(GetApplicationLastModificationDate()));
-        AddDetailRow(details, 3, "Version", "1.2.0  •  .NET 6");
+        AddDetailRow(details, 3, "Version", "1.3.0  •  .NET 8");
         card.Controls.Add(details);
 
         var calendar = new RoundedPanel { Size = new Size(185, 108), Radius = 18, BackColor = Color.FromArgb(9, 57, 104), BorderColor = Color.FromArgb(30, 131, 211), BorderWidth = 1, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(980, 42) };
