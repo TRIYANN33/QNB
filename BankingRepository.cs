@@ -331,9 +331,17 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
         {
             var mode=r.GetString(4);if(!overwriteManual&&string.Equals(mode,"Manuel",StringComparison.OrdinalIgnoreCase))continue;
             var text=$"{r.GetString(1)} {r.GetString(2)} {r.GetString(3)}";
-            var rule=rules.FirstOrDefault(x=>text.Contains(x.ContainsText,StringComparison.CurrentCultureIgnoreCase));if(rule is not null)updates.Add((r.GetInt64(0),rule.Type,rule.SubType));
+            var rule=rules.FirstOrDefault(x=>RuleMatches(text,x.ContainsText));if(rule is not null)updates.Add((r.GetInt64(0),rule.Type,rule.SubType));
         }
         r.Close();foreach(var u in updates){using var cmd=c.CreateCommand();cmd.CommandText="UPDATE Operations SET OperationType=$type,OperationSubType=$sub,ClassificationMode='Auto' WHERE Id=$id";cmd.Parameters.AddWithValue("$type",u.Type);cmd.Parameters.AddWithValue("$sub",u.Sub);cmd.Parameters.AddWithValue("$id",u.Id);changed+=cmd.ExecuteNonQuery();}return changed;
+    }
+
+    private static bool RuleMatches(string operationText,string searchTerms)
+    {
+        // Une même règle peut contenir plusieurs mots-clés séparés par ;, | ou un retour à la ligne.
+        // La règle correspond dès qu'au moins un des mots-clés est présent.
+        var terms=searchTerms.Split(new[]{';','|','\r','\n'},StringSplitOptions.RemoveEmptyEntries|StringSplitOptions.TrimEntries);
+        return terms.Any(term=>operationText.Contains(term,StringComparison.CurrentCultureIgnoreCase));
     }
 
     public static DashboardBankingStats GetDashboardStats(){using var c=OpenConnection();using var cmd=c.CreateCommand();cmd.CommandText=@"SELECT (SELECT COUNT(*) FROM Imports),(SELECT COUNT(*) FROM Operations),(SELECT COUNT(*) FROM Accounts),COALESCE((SELECT SUM(ABS(Credit+Debit)) FROM Operations WHERE IsDeferredCardSummary=1),0);";using var r=cmd.ExecuteReader();if(!r.Read())return new DashboardBankingStats();return new DashboardBankingStats{Documents=r.GetInt32(0),Operations=r.GetInt32(1),Accounts=r.GetInt32(2),DeferredCardAmount=Convert.ToDecimal(r.GetDouble(3),CultureInfo.InvariantCulture)};}
