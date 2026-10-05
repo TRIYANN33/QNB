@@ -1,4 +1,5 @@
 using ExcelDataReader;
+using UglyToad.PdfPig;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -105,6 +106,67 @@ internal static class BankImportService
 
         if (result.Operations.Count == 0)
             throw new InvalidDataException("Aucune opération bancaire n'a été détectée dans le fichier.");
+
+        DetectDeferredCardSummaries(result);
+        return result;
+    }
+
+    public static BankImportResult ImportPdf(string filePath)
+    {
+        var lines = new List<string>();
+        using (var document = PdfDocument.Open(filePath))
+        {
+            foreach (var page in document.GetPages())
+            {
+                var words = page.GetWords()
+                    .OrderByDescending(w => w.BoundingBox.Bottom)
+                    .ThenBy(w => w.BoundingBox.Left)
+                    .ToList();
+
+                foreach (var row in words.GroupBy(w => Math.Round(w.BoundingBox.Bottom / 3.0) * 3.0).OrderByDescending(g => g.Key))
+                {
+                    var text = string.Join(" ", row.OrderBy(w => w.BoundingBox.Left).Select(w => w.Text)).Trim();
+                    if (!string.IsNullOrWhiteSpace(text)) lines.Add(text);
+                }
+            }
+        }
+
+        if (lines.Count == 0)
+            throw new InvalidDataException("Le PDF ne contient pas de texte exploitable. Les PDF scannés sous forme d'image nécessitent une reconnaissance OCR.");
+
+        var result = new BankImportResult { SourceFile = filePath, Currency = "EUR" };
+        var dateRegex = new Regex(@"^(?<date>\d{2}[/.\-]\d{2}[/.\-]\d{2,4})\s+(?<text>.+)$");
+        var amountRegex = new Regex(@"(?<amount>[+\-]?\s*\d{1,3}(?:[ .]\d{3})*(?:,\d{2})|[+\-]?\s*\d+[.,]\d{2})\s*(?<currency>EUR|€)?\s*$", RegexOptions.IgnoreCase);
+
+        foreach (var raw in lines)
+        {
+            var line = Regex.Replace(raw, @"\s+", " ").Trim();
+            var dateMatch = dateRegex.Match(line);
+            if (!dateMatch.Success) continue;
+            if (!DateTime.TryParse(dateMatch.Groups["date"].Value.Replace('.', '/').Replace('-', '/'), CultureInfo.GetCultureInfo("fr-FR"), DateTimeStyles.None, out var date)) continue;
+
+            var remainder = dateMatch.Groups["text"].Value.Trim();
+            var amountMatch = amountRegex.Match(remainder);
+            if (!amountMatch.Success) continue;
+            var amountText = amountMatch.Groups["amount"].Value.Replace(" ", string.Empty).Replace(".", string.Empty).Replace(',', '.');
+            if (!decimal.TryParse(amountText, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var amount)) continue;
+
+            var label = remainder[..amountMatch.Index].Trim(' ', '-', '|');
+            if (string.IsNullOrWhiteSpace(label)) continue;
+            result.Operations.Add(new BankOperation
+            {
+                Date = date.Date,
+                Nature = ExtractNature(label),
+                Debit = amount < 0m ? amount : 0m,
+                Credit = amount > 0m ? amount : 0m,
+                Currency = string.IsNullOrWhiteSpace(amountMatch.Groups["currency"].Value) ? "EUR" : "EUR",
+                InterbankLabel = label,
+                Details = label
+            });
+        }
+
+        if (result.Operations.Count == 0)
+            throw new InvalidDataException("Aucune opération n'a été reconnue dans ce PDF. Vérifiez qu'il s'agit d'un relevé PDF texte avec une date, un libellé et un montant par opération.");
 
         DetectDeferredCardSummaries(result);
         return result;
