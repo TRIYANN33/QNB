@@ -113,63 +113,123 @@ internal static class BankImportService
 
     public static BankImportResult ImportPdf(string filePath)
     {
-        var lines = new List<string>();
+        var extractedRows = new List<(string Text, double[] X)>();
         using (var document = PdfDocument.Open(filePath))
         {
             foreach (var page in document.GetPages())
             {
-                var words = page.GetWords()
-                    .OrderByDescending(w => w.BoundingBox.Bottom)
-                    .ThenBy(w => w.BoundingBox.Left)
-                    .ToList();
-
+                var words = page.GetWords().ToList();
                 foreach (var row in words.GroupBy(w => Math.Round(w.BoundingBox.Bottom / 3.0) * 3.0).OrderByDescending(g => g.Key))
                 {
-                    var text = string.Join(" ", row.OrderBy(w => w.BoundingBox.Left).Select(w => w.Text)).Trim();
-                    if (!string.IsNullOrWhiteSpace(text)) lines.Add(text);
+                    var ordered = row.OrderBy(w => w.BoundingBox.Left).ToList();
+                    var text = string.Join(" ", ordered.Select(w => w.Text)).Trim();
+                    if (!string.IsNullOrWhiteSpace(text))
+                        extractedRows.Add((text, ordered.Select(w => w.BoundingBox.Left).ToArray()));
                 }
             }
         }
 
-        if (lines.Count == 0)
+        if (extractedRows.Count == 0)
             throw new InvalidDataException("Le PDF ne contient pas de texte exploitable. Les PDF scannés sous forme d'image nécessitent une reconnaissance OCR.");
 
         var result = new BankImportResult { SourceFile = filePath, Currency = "EUR" };
-        var dateRegex = new Regex(@"^(?<date>\d{2}[/.\-]\d{2}[/.\-]\d{2,4})\s+(?<text>.+)$");
-        var amountRegex = new Regex(@"(?<amount>[+\-]?\s*\d{1,3}(?:[ .]\d{3})*(?:,\d{2})|[+\-]?\s*\d+[.,]\d{2})\s*(?<currency>EUR|€)?\s*$", RegexOptions.IgnoreCase);
+        var dateRegex = new Regex(@"^(?<date>\d{1,2}\s+(?:janv\.?|févr\.?|fevr\.?|mars|avr\.?|mai|juin|juil\.?|août|aout|sept\.?|oct\.?|nov\.?|déc\.?|dec\.?)\s+\d{4}|\d{2}[/.\-]\d{2}[/.\-]\d{2,4})\b", RegexOptions.IgnoreCase);
+        var moneyRegex = new Regex(@"\d{1,3}(?:[ .]\d{3})*,\d{2}\s*€?|\d+[.,]\d{2}\s*€?", RegexOptions.IgnoreCase);
 
-        foreach (var raw in lines)
+        // Détecte les positions des colonnes "Argent sortant" et "Argent entrant".
+        // C'est indispensable pour les relevés où les montants n'ont aucun signe.
+        double? outgoingX = null, incomingX = null;
+        foreach (var row in extractedRows)
         {
-            var line = Regex.Replace(raw, @"\s+", " ").Trim();
-            var dateMatch = dateRegex.Match(line);
+            if (!row.Text.Contains("Argent sortant", StringComparison.OrdinalIgnoreCase) ||
+                !row.Text.Contains("Argent entrant", StringComparison.OrdinalIgnoreCase)) continue;
+            var words = row.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var outIndex = Array.FindIndex(words, x => x.Equals("sortant", StringComparison.OrdinalIgnoreCase));
+            var inIndex = Array.FindIndex(words, x => x.Equals("entrant", StringComparison.OrdinalIgnoreCase));
+            if (outIndex >= 0 && outIndex < row.X.Length) outgoingX = row.X[outIndex];
+            if (inIndex >= 0 && inIndex < row.X.Length) incomingX = row.X[inIndex];
+        }
+
+        for (var rowIndex = 0; rowIndex < extractedRows.Count; rowIndex++)
+        {
+            var row = extractedRows[rowIndex];
+            var dateMatch = dateRegex.Match(row.Text);
             if (!dateMatch.Success) continue;
-            if (!DateTime.TryParse(dateMatch.Groups["date"].Value.Replace('.', '/').Replace('-', '/'), CultureInfo.GetCultureInfo("fr-FR"), DateTimeStyles.None, out var date)) continue;
+            if (!TryParsePdfDate(dateMatch.Groups["date"].Value, out var date)) continue;
 
-            var remainder = dateMatch.Groups["text"].Value.Trim();
-            var amountMatch = amountRegex.Match(remainder);
-            if (!amountMatch.Success) continue;
-            var amountText = amountMatch.Groups["amount"].Value.Replace(" ", string.Empty).Replace(".", string.Empty).Replace(',', '.');
-            if (!decimal.TryParse(amountText, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var amount)) continue;
+            var moneyMatches = moneyRegex.Matches(row.Text);
+            if (moneyMatches.Count == 0) continue;
 
-            var label = remainder[..amountMatch.Index].Trim(' ', '-', '|');
+            // Le dernier montant de la ligne peut être le solde. On choisit le montant
+            // situé le plus près des colonnes sortant/entrant lorsqu'elles sont connues.
+            Match? selectedMoney = null;
+            bool isOutgoing = false;
+            if (outgoingX.HasValue || incomingX.HasValue)
+            {
+                var candidates = moneyMatches.Cast<Match>().Select(m =>
+                {
+                    var wordIndex = Math.Max(0, row.Text[..m.Index].Split(' ', StringSplitOptions.RemoveEmptyEntries).Length);
+                    var x = wordIndex < row.X.Length ? row.X[wordIndex] : double.NaN;
+                    var outDistance = outgoingX.HasValue && !double.IsNaN(x) ? Math.Abs(x - outgoingX.Value) : double.MaxValue;
+                    var inDistance = incomingX.HasValue && !double.IsNaN(x) ? Math.Abs(x - incomingX.Value) : double.MaxValue;
+                    return new { Match = m, OutDistance = outDistance, InDistance = inDistance };
+                }).OrderBy(x => Math.Min(x.OutDistance, x.InDistance)).FirstOrDefault();
+                if (candidates is not null && Math.Min(candidates.OutDistance, candidates.InDistance) < 140)
+                {
+                    selectedMoney = candidates.Match;
+                    isOutgoing = candidates.OutDistance <= candidates.InDistance;
+                }
+            }
+            selectedMoney ??= moneyMatches[0];
+
+            var amountText = selectedMoney.Value.Replace("€", string.Empty).Replace(" ", string.Empty).Replace(".", string.Empty).Replace(',', '.');
+            if (!decimal.TryParse(amountText, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var amount)) continue;
+
+            var labelStart = dateMatch.Index + dateMatch.Length;
+            var labelEnd = selectedMoney.Index;
+            var label = labelEnd > labelStart ? row.Text[labelStart..labelEnd].Trim(' ', '-', '|') : string.Empty;
+
+            // Les détails d'une opération peuvent être imprimés sur la ligne immédiatement suivante.
+            if (rowIndex + 1 < extractedRows.Count && !dateRegex.IsMatch(extractedRows[rowIndex + 1].Text))
+            {
+                var detail = extractedRows[rowIndex + 1].Text.Trim();
+                if (!string.IsNullOrWhiteSpace(detail) && !detail.Contains("Transactions du compte", StringComparison.OrdinalIgnoreCase))
+                    label = string.IsNullOrWhiteSpace(label) ? detail : label + " | " + detail;
+            }
+
             if (string.IsNullOrWhiteSpace(label)) continue;
             result.Operations.Add(new BankOperation
             {
                 Date = date.Date,
                 Nature = ExtractNature(label),
-                Debit = amount < 0m ? amount : 0m,
-                Credit = amount > 0m ? amount : 0m,
-                Currency = string.IsNullOrWhiteSpace(amountMatch.Groups["currency"].Value) ? "EUR" : "EUR",
+                Debit = isOutgoing ? -Math.Abs(amount) : 0m,
+                Credit = isOutgoing ? 0m : Math.Abs(amount),
+                Currency = "EUR",
                 InterbankLabel = label,
                 Details = label
             });
         }
 
         if (result.Operations.Count == 0)
-            throw new InvalidDataException("Aucune opération n'a été reconnue dans ce PDF. Vérifiez qu'il s'agit d'un relevé PDF texte avec une date, un libellé et un montant par opération.");
+            throw new InvalidDataException("Aucune opération n'a été reconnue dans ce PDF. Vérifiez qu'il s'agit d'un relevé PDF texte.");
 
         DetectDeferredCardSummaries(result);
         return result;
+    }
+
+    private static bool TryParsePdfDate(string value, out DateTime date)
+    {
+        var normalized = value.Trim().ToLowerInvariant()
+            .Replace("janv.", "01").Replace("janv", "01")
+            .Replace("févr.", "02").Replace("févr", "02").Replace("fevr.", "02").Replace("fevr", "02")
+            .Replace("mars", "03").Replace("avr.", "04").Replace("avr", "04").Replace("mai", "05")
+            .Replace("juin", "06").Replace("juil.", "07").Replace("juil", "07")
+            .Replace("août", "08").Replace("aout", "08").Replace("sept.", "09").Replace("sept", "09")
+            .Replace("oct.", "10").Replace("oct", "10").Replace("nov.", "11").Replace("nov", "11")
+            .Replace("déc.", "12").Replace("déc", "12").Replace("dec.", "12").Replace("dec", "12");
+        normalized = Regex.Replace(normalized, @"\s+", "/").Replace('.', '/').Replace('-', '/');
+        return DateTime.TryParseExact(normalized, new[] { "d/MM/yyyy", "dd/MM/yyyy", "d/M/yyyy", "dd/M/yyyy" },
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
     }
 
     public static BankImportResult ImportExcel(string filePath)
