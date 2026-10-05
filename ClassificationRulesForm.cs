@@ -11,13 +11,13 @@ internal sealed class ClassificationRulesForm : Form
         Size=new Size(1050,650); MinimumSize=new Size(850,520); BackColor=Color.FromArgb(3,23,49); ForeColor=Color.White; Font=new Font("Segoe UI",9.3F);
 
         var title=new Label{Text="RÈGLES DE TYPAGE",Dock=DockStyle.Top,Height=62,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(18,0,0,0),Font=new Font("Segoe UI Semibold",20F,FontStyle.Bold),ForeColor=Color.White};
-        var info=new Label{Text="Le texte est recherché dans Nature + Libellé + Détails. La priorité la plus faible est appliquée en premier.",Dock=DockStyle.Top,Height=34,Padding=new Padding(20,0,0,0),ForeColor=Color.FromArgb(183,207,229)};
+        var info=new Label{Text="Recherche dans Nature + Libellé + Détails. Plusieurs mots-clés dans une règle : séparez-les par ; ou |. Un seul mot-clé trouvé suffit.",Dock=DockStyle.Top,Height=34,Padding=new Padding(20,0,0,0),ForeColor=Color.FromArgb(183,207,229)};
 
         _grid.Dock=DockStyle.Fill; _grid.BackgroundColor=Color.FromArgb(7,43,82); _grid.ForeColor=Color.White; _grid.AutoGenerateColumns=false;
         _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false; _grid.ReadOnly=true; _grid.RowHeadersVisible=false; _grid.SelectionMode=DataGridViewSelectionMode.FullRowSelect; _grid.MultiSelect=false;
         _grid.EnableHeadersVisualStyles=false; _grid.ColumnHeadersDefaultCellStyle.BackColor=Color.FromArgb(8,73,137); _grid.ColumnHeadersDefaultCellStyle.ForeColor=Color.White;
         _grid.DefaultCellStyle.BackColor=Color.FromArgb(7,43,82); _grid.DefaultCellStyle.ForeColor=Color.White; _grid.DefaultCellStyle.SelectionBackColor=Color.FromArgb(18,82,146);
-        AddColumn("Actif","Enabled",60); AddColumn("Priorité","Priority",70); AddColumn("Si le texte contient","ContainsText",220); AddColumn("Type","Type",160); AddColumn("S_Type","SubType",180); AddColumn("Couleur","CellColor",110);
+        AddColumn("Actif","Enabled",60); AddColumn("Priorité","Priority",70); AddColumn("Mots-clés (séparés par ; ou |)","ContainsText",310); AddColumn("Type","Type",160); AddColumn("S_Type","SubType",180); AddColumn("Couleur","CellColor",110);
         _grid.CellFormatting += FormatColorCell;
 
         var bar=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=62,Padding=new Padding(12),BackColor=Color.FromArgb(4,36,73)};
@@ -87,17 +87,17 @@ internal sealed class ClassificationRuleEditForm : Form
 
     public ClassificationRuleEditForm(ClassificationRule? rule)
     {
-        _id=rule?.Id??0; Text=rule is null?"QNB - Nouvelle règle":"QNB - Modifier la règle";StartPosition=FormStartPosition.CenterParent;ClientSize=new Size(520,385);FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",9.5F);
-        AddLabel("Si le texte contient",25,30);_contains.SetBounds(180,26,305,28);_contains.Text=rule?.ContainsText??"";Controls.Add(_contains);
-        AddLabel("Type",25,82);_type.SetBounds(180,78,305,28);_type.DropDownStyle=ComboBoxStyle.DropDown;Controls.Add(_type);
-        AddLabel("S_Type",25,134);_subType.SetBounds(180,130,305,28);_subType.DropDownStyle=ComboBoxStyle.DropDown;Controls.Add(_subType);
+        _id=rule?.Id??0; Text=rule is null?"QNB - Nouvelle règle":"QNB - Modifier la règle";StartPosition=FormStartPosition.CenterParent;ClientSize=new Size(650,430);FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",9.5F);
+        AddLabel("Mots-clés",25,30);_contains.SetBounds(180,26,430,64);_contains.Multiline=true;_contains.ScrollBars=ScrollBars.Vertical;_contains.Text=rule?.ContainsText??"";Controls.Add(_contains);\n        Controls.Add(new Label{Text="Séparez les recherches par ;  ou  |  ou une nouvelle ligne. Ex. CARREFOUR; 3CAR; FARMO",AutoSize=true,Location=new Point(180,94),ForeColor=Color.FromArgb(183,207,229),Font=new Font("Segoe UI",8.3F)});
+        AddLabel("Type",25,132);_type.SetBounds(180,128,430,28);_type.DropDownStyle=ComboBoxStyle.DropDown;Controls.Add(_type);
+        AddLabel("S_Type",25,184);_subType.SetBounds(180,180,430,28);_subType.DropDownStyle=ComboBoxStyle.DropDown;Controls.Add(_subType);
         LoadTypingLists(rule);
-        AddLabel("Couleur cellule",25,186);_color.SetBounds(180,182,190,28);_color.ReadOnly=true;_color.Text=rule?.CellColor??"";Controls.Add(_color);ApplyColorPreview();
-        _colorButton.Text="Choisir...";_colorButton.SetBounds(380,180,105,32);_colorButton.Click+=(_,_)=>ChooseColor();Controls.Add(_colorButton);
-        AddLabel("Priorité",25,228);_priority.SetBounds(180,224,100,28);_priority.Minimum=1;_priority.Maximum=9999;_priority.Value=rule?.Priority??100;Controls.Add(_priority);
-        _enabled.Text="Règle active";_enabled.SetBounds(310,226,150,28);_enabled.Checked=rule?.Enabled??true;_enabled.ForeColor=Color.White;Controls.Add(_enabled);
-        var save=new Button{Text="Enregistrer",Left=340,Top=305,Width=145,Height=36,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
-        var cancel=new Button{Text="Annuler",Left=210,Top=250,Width=115,Height=36,DialogResult=DialogResult.Cancel};save.Click+=(_,_)=>Save();Controls.Add(save);Controls.Add(cancel);AcceptButton=save;CancelButton=cancel;
+        AddLabel("Couleur cellule",25,236);_color.SetBounds(180,232,270,28);_color.ReadOnly=true;_color.Text=rule?.CellColor??"";Controls.Add(_color);ApplyColorPreview();
+        _colorButton.Text="Choisir...";_colorButton.SetBounds(460,230,150,32);_colorButton.Click+=(_,_)=>ChooseColor();Controls.Add(_colorButton);
+        AddLabel("Priorité",25,278);_priority.SetBounds(180,274,100,28);_priority.Minimum=1;_priority.Maximum=9999;_priority.Value=rule?.Priority??100;Controls.Add(_priority);
+        _enabled.Text="Règle active";_enabled.SetBounds(330,276,150,28);_enabled.Checked=rule?.Enabled??true;_enabled.ForeColor=Color.White;Controls.Add(_enabled);
+        var save=new Button{Text="Enregistrer",Left=465,Top=350,Width=145,Height=36,BackColor=Color.FromArgb(25,130,105),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+        var cancel=new Button{Text="Annuler",Left=335,Top=350,Width=115,Height=36,DialogResult=DialogResult.Cancel};save.Click+=(_,_)=>Save();Controls.Add(save);Controls.Add(cancel);AcceptButton=save;CancelButton=cancel;
     }
     private void LoadTypingLists(ClassificationRule? current)
     {
