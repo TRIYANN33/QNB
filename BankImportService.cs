@@ -133,6 +133,61 @@ internal static class BankImportService
             throw new InvalidDataException("Le PDF ne contient pas de texte exploitable. Les PDF scannés sous forme d'image nécessitent une reconnaissance OCR.");
 
         var result = new BankImportResult { SourceFile = filePath, Currency = "EUR" };
+
+        // Format bancaire : Description | Date de réservation | Montant.
+        // Le signe du montant indique directement crédit (+) ou débit (-).
+        if (extractedRows.Any(r => r.Text.Contains("Date de réservation", StringComparison.OrdinalIgnoreCase))
+            && extractedRows.Any(r => r.Text.Contains("Montant", StringComparison.OrdinalIgnoreCase)))
+        {
+            var reservationDateRegex = new Regex(@"\b(?<date>\d{2}\.\d{2}\.\d{4})\b");
+            var signedAmountRegex = new Regex(@"(?<amount>[+\-]\s*\d{1,3}(?:[ .]\d{3})*(?:,\d{2})|[+\-]\s*\d+[.,]\d{2})\s*€", RegexOptions.IgnoreCase);
+            for (var i = 0; i < extractedRows.Count; i++)
+            {
+                var row = extractedRows[i].Text;
+                var dm = reservationDateRegex.Match(row);
+                var am = signedAmountRegex.Match(row);
+                if (!dm.Success || !am.Success || !TryParsePdfDate(dm.Groups["date"].Value, out var operationDate)) continue;
+
+                var amountText = am.Groups["amount"].Value.Replace(" ", string.Empty).Replace(".", string.Empty).Replace(',', '.');
+                if (!decimal.TryParse(amountText, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var amount)) continue;
+
+                var label = row[..dm.Index].Trim(' ', '-', '|');
+                if (string.IsNullOrWhiteSpace(label) && i > 0) label = extractedRows[i - 1].Text.Trim();
+                var details = label;
+
+                // Récupère les lignes descriptives suivant l'opération jusqu'à la prochaine date/montant.
+                for (var j = i + 1; j < extractedRows.Count && j <= i + 3; j++)
+                {
+                    var detail = extractedRows[j].Text.Trim();
+                    if (reservationDateRegex.IsMatch(detail) || signedAmountRegex.IsMatch(detail)) break;
+                    if (detail.StartsWith("Date de valeur", StringComparison.OrdinalIgnoreCase))
+                    {
+                        details = string.IsNullOrWhiteSpace(details) ? detail : details + " | " + detail;
+                        break;
+                    }
+                    if (!string.IsNullOrWhiteSpace(detail) && !detail.Equals("Description", StringComparison.OrdinalIgnoreCase))
+                        details = string.IsNullOrWhiteSpace(details) ? detail : details + " | " + detail;
+                }
+
+                result.Operations.Add(new BankOperation
+                {
+                    Date = operationDate.Date,
+                    Nature = ExtractNature(label),
+                    Debit = amount < 0m ? amount : 0m,
+                    Credit = amount > 0m ? amount : 0m,
+                    Currency = "EUR",
+                    InterbankLabel = label,
+                    Details = details
+                });
+            }
+
+            if (result.Operations.Count > 0)
+            {
+                DetectDeferredCardSummaries(result);
+                return result;
+            }
+        }
+
         var dateRegex = new Regex(@"^(?<date>\d{1,2}\s+(?:janv\.?|févr\.?|fevr\.?|mars|avr\.?|mai|juin|juil\.?|août|aout|sept\.?|oct\.?|nov\.?|déc\.?|dec\.?)\s+\d{4}|\d{2}[/.\-]\d{2}[/.\-]\d{2,4})\b", RegexOptions.IgnoreCase);
         var moneyRegex = new Regex(@"\d{1,3}(?:[ .]\d{3})*,\d{2}\s*€?|\d+[.,]\d{2}\s*€?", RegexOptions.IgnoreCase);
 
