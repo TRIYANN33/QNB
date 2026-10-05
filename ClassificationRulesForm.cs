@@ -88,7 +88,8 @@ internal sealed class ClassificationRuleEditForm : Form
     public ClassificationRuleEditForm(ClassificationRule? rule)
     {
         _id=rule?.Id??0; Text=rule is null?"QNB - Nouvelle règle":"QNB - Modifier la règle";StartPosition=FormStartPosition.CenterParent;ClientSize=new Size(650,430);FormBorderStyle=FormBorderStyle.FixedDialog;MaximizeBox=false;MinimizeBox=false;BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",9.5F);
-        AddLabel("Mots-clés",25,30);_contains.SetBounds(180,26,430,64);_contains.Multiline=true;_contains.ScrollBars=ScrollBars.Vertical;_contains.Text=rule?.ContainsText??"";Controls.Add(_contains);\n        Controls.Add(new Label{Text="Séparez les recherches par ;  ou  |  ou une nouvelle ligne. Ex. CARREFOUR; 3CAR; FARMO",AutoSize=true,Location=new Point(180,94),ForeColor=Color.FromArgb(183,207,229),Font=new Font("Segoe UI",8.3F)});
+        AddLabel("Mots-clés",25,30);_contains.SetBounds(180,26,430,64);_contains.Multiline=true;_contains.ScrollBars=ScrollBars.Vertical;_contains.Text=rule?.ContainsText??"";Controls.Add(_contains);
+        Controls.Add(new Label{Text="Séparez les recherches par ;  ou  |  ou une nouvelle ligne. Ex. CARREFOUR; 3CAR; FARMO",AutoSize=true,Location=new Point(180,94),ForeColor=Color.FromArgb(183,207,229),Font=new Font("Segoe UI",8.3F)});
         AddLabel("Type",25,132);_type.SetBounds(180,128,430,28);_type.DropDownStyle=ComboBoxStyle.DropDown;Controls.Add(_type);
         AddLabel("S_Type",25,184);_subType.SetBounds(180,180,430,28);_subType.DropDownStyle=ComboBoxStyle.DropDown;Controls.Add(_subType);
         LoadTypingLists(rule);
