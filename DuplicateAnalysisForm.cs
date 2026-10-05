@@ -23,21 +23,49 @@ internal static class DuplicateAnalysisService
 {
     public static List<DuplicateCandidate> Analyze()
     {
-        var operations=BankingRepository.LoadOperationsForDuplicateAnalysis();var excluded=BankingRepository.LoadDuplicateExclusions();var results=new List<DuplicateCandidate>();
-        foreach(var group in operations.GroupBy(x=>new{Amount=decimal.Round(x.Amount,2),Currency=Normalize(x.Currency)}))
+        var operations = BankingRepository.LoadOperationsForDuplicateAnalysis();
+        var excluded = BankingRepository.LoadDuplicateExclusions();
+        var results = new List<DuplicateCandidate>();
+
+        // Règle unique des doublons :
+        // même date d'opération + même montant signé + même libellé normalisé.
+        // Banque, compte, date de valeur, devise, nature et détails ne participent
+        // pas à l'identification d'un doublon.
+        var groups = operations.GroupBy(x => new
         {
-            var items=group.OrderBy(x=>x.Date).ToList();
-            for(var i=0;i<items.Count;i++) for(var j=i+1;j<items.Count;j++)
+            Date = x.Date.Date,
+            Amount = decimal.Round(x.Amount, 2),
+            Label = Normalize(BestDuplicateLabel(x))
+        });
+
+        foreach (var group in groups.Where(g => g.Key.Label.Length > 0 && g.Count() > 1))
+        {
+            var items = group.OrderBy(x => x.Id).ToList();
+            for (var i = 0; i < items.Count; i++)
             {
-                var days=Math.Abs((items[j].Date.Date-items[i].Date.Date).Days);if(days>2)break;var key=$"{Math.Min(items[i].Id,items[j].Id)}:{Math.Max(items[i].Id,items[j].Id)}";if(excluded.Contains(key))continue;
-                var similarity=Similarity(Normalize($"{items[i].Nature} {items[i].Label} {items[i].Details}"),Normalize($"{items[j].Nature} {items[j].Label} {items[j].Details}"));
-                var sameValueDate=items[i].ValueDate.HasValue&&items[j].ValueDate.HasValue&&items[i].ValueDate.Value.Date==items[j].ValueDate.Value.Date;
-                var score=45+(days==0?30:days==1?18:10)+(int)Math.Round(similarity*25m)+(sameValueDate?5:0);score=Math.Min(score,100);if(score<70)continue;
-                results.Add(new DuplicateCandidate{Level=score>=90?"Certain":"Probable",Score=score,Reason=$"Même montant {items[i].Amount:N2} {items[i].Currency}; dates à {days} jour(s); libellés similaires à {similarity:P0}",Left=items[i],Right=items[j]});
+                for (var j = i + 1; j < items.Count; j++)
+                {
+                    var key = $"{Math.Min(items[i].Id, items[j].Id)}:{Math.Max(items[i].Id, items[j].Id)}";
+                    if (excluded.Contains(key)) continue;
+
+                    results.Add(new DuplicateCandidate
+                    {
+                        Level = "Certain",
+                        Score = 100,
+                        Reason = $"Même date {items[i].Date:dd/MM/yyyy}; même montant {items[i].Amount:N2}; même libellé",
+                        Left = items[i],
+                        Right = items[j]
+                    });
+                }
             }
         }
-        return results.OrderByDescending(x=>x.Score).ThenByDescending(x=>x.Left.Date).ToList();
+
+        return results.OrderByDescending(x => x.Left.Date).ThenBy(x => x.Left.Id).ToList();
     }
+
+    private static string BestDuplicateLabel(DuplicateOperation operation) =>
+        string.IsNullOrWhiteSpace(operation.Label) ? operation.Nature : operation.Label;
+
     private static string Normalize(string? value){if(string.IsNullOrWhiteSpace(value))return string.Empty;var d=value.Trim().ToUpperInvariant().Normalize(NormalizationForm.FormD);var sb=new StringBuilder();var space=false;foreach(var ch in d){if(CharUnicodeInfo.GetUnicodeCategory(ch)==UnicodeCategory.NonSpacingMark)continue;if(char.IsLetterOrDigit(ch)){sb.Append(ch);space=false;}else if(!space){sb.Append(' ');space=true;}}return sb.ToString().Trim();}
     private static decimal Similarity(string left,string right){if(left==right&&left.Length>0)return 1m;var a=left.Split(' ',StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);var b=right.Split(' ',StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);if(a.Count==0||b.Count==0)return 0m;var intersection=a.Count(x=>b.Contains(x));var union=a.Union(b).Count();return union==0?0m:(decimal)intersection/union;}
 }
