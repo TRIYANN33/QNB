@@ -16,8 +16,8 @@ internal sealed class BankAccountSelectionForm : Form
     {
         Text = "QNB - Banque et compte";
         StartPosition = FormStartPosition.CenterParent;
-        Size = new Size(620, 550);
-        MinimumSize = new Size(620, 550);
+        Size = new Size(1000, 550);
+        MinimumSize = new Size(1000, 550);
         BackColor = Color.FromArgb(3, 23, 49);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9.5F);
