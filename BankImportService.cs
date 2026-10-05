@@ -477,15 +477,14 @@ internal static class BankImportService
 
     private static string BuildOperationFingerprint(BankOperation operation)
     {
+        // Règle stricte des doublons à l'import :
+        // même date d'opération + même montant signé + même libellé normalisé.
+        // La date de valeur, la devise, la nature et les détails ne participent pas
+        // à l'identification d'un doublon.
         return string.Join("|",
             operation.Date.Date.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
-            operation.ValueDate?.Date.ToString("yyyyMMdd", CultureInfo.InvariantCulture) ?? string.Empty,
-            operation.Debit.ToString("0.00##", CultureInfo.InvariantCulture),
-            operation.Credit.ToString("0.00##", CultureInfo.InvariantCulture),
-            Normalize(operation.Currency),
-            Normalize(operation.Nature),
-            Normalize(operation.InterbankLabel),
-            Normalize(operation.Details));
+            operation.Amount.ToString("0.00##", CultureInfo.InvariantCulture),
+            Normalize(operation.InterbankLabel));
     }
 
     private static string Normalize(string? value)
