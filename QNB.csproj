@@ -30,6 +30,7 @@
 		<PackageReference Include="Microsoft.Data.Sqlite" Version="6.0.36" />
 		<PackageReference Include="ExcelDataReader" Version="3.7.0" />
 		<PackageReference Include="ClosedXML" Version="0.104.2" />
+		<PackageReference Include="UglyToad.PdfPig" Version="0.1.9" />
 		<PackageReference Include="System.Text.Encoding.CodePages" Version="6.0.0" />
 	</ItemGroup>
 
