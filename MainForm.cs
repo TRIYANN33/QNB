@@ -292,28 +292,26 @@ public sealed class MainForm : Form
         using var dialog = new OpenFileDialog
         {
             Title = "Importer un relevé bancaire",
-            Filter = "Relevés bancaires (*.csv;*.xlsx;*.xls)|*.csv;*.xlsx;*.xls|CSV (*.csv)|*.csv|Excel (*.xlsx;*.xls)|*.xlsx;*.xls|Documents PDF (*.pdf)|*.pdf|Tous les fichiers (*.*)|*.*",
+            Filter = "Relevés bancaires (*.pdf;*.csv;*.xlsx;*.xls)|*.pdf;*.csv;*.xlsx;*.xls|PDF (*.pdf)|*.pdf|CSV (*.csv)|*.csv|Excel (*.xlsx;*.xls)|*.xlsx;*.xls|Tous les fichiers (*.*)|*.*",
             FilterIndex = 1, Multiselect = false, CheckFileExists = true
         };
 
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         var extension = Path.GetExtension(dialog.FileName).ToLowerInvariant();
-        if (extension == ".pdf")
+        if (extension is not ".pdf" and not ".csv" and not ".xlsx" and not ".xls")
         {
-            MessageBox.Show("Le support PDF sera ajouté dans une prochaine étape.", "QNB - Importation", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
-        if (extension is not ".csv" and not ".xlsx" and not ".xls")
-        {
-            MessageBox.Show("Format non pris en charge. Utilisez un fichier CSV, XLSX ou XLS.", "QNB - Importation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("Format non pris en charge. Utilisez un fichier PDF, CSV, XLSX ou XLS.", "QNB - Importation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
         try
         {
-            var result = extension == ".csv"
-                ? BankImportService.ImportCsv(dialog.FileName)
-                : BankImportService.ImportExcel(dialog.FileName);
+            var result = extension switch
+            {
+                ".pdf" => BankImportService.ImportPdf(dialog.FileName),
+                ".csv" => BankImportService.ImportCsv(dialog.FileName),
+                _ => BankImportService.ImportExcel(dialog.FileName)
+            };
 
             using var accountForm = new BankAccountSelectionForm(result);
             if (accountForm.ShowDialog(this) != DialogResult.OK || accountForm.SelectedAccount is null) return;
