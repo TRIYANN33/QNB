@@ -43,7 +43,7 @@ internal sealed class OperationsForm : Form
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 4, BackColor = BackColor };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 184F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 226F));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -58,11 +58,12 @@ internal sealed class OperationsForm : Form
         selectedPanel.Controls.Add(_selectedOperationInfo,0,0);selectedPanel.Controls.Add(_checkedSelectionInfo,0,1);header.Controls.Add(selectedPanel,1,0);
         layout.Controls.Add(header, 0, 0);
 
-        var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = Color.FromArgb(4,36,73), Padding = new Padding(12,8,12,8) };
-        filters.RowStyles.Add(new RowStyle(SizeType.Percent,33.33F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,33.33F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,33.34F));
+        var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = Color.FromArgb(4,36,73), Padding = new Padding(12,8,12,8) };
+        filters.RowStyles.Add(new RowStyle(SizeType.Percent,25F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,25F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,25F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,25F));
         var filterRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
         var navigationRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
         var actionRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
+        var actionRow2 = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
         _bankFilter = new ComboBox { Width = 220, DropDownStyle = ComboBoxStyle.DropDownList };
         _accountFilter = new ComboBox { Width = 270, DropDownStyle = ComboBoxStyle.DropDownList };
         _bankFilter.Items.Add("Toutes les banques");
@@ -130,17 +131,17 @@ internal sealed class OperationsForm : Form
         showAll.Click += (_, _) => { _showCheckedBankAccounts = false; _showCheckedOperations = false; _bankFilter.SelectedIndex = 0; _searchBox.Clear(); _periodEnabled.Checked = false; _withoutTypeFilter.Checked = false; RefreshAccountFilter(); };
         actionRow.Controls.Add(showAll);
         var manualButton = new Button { Text = "Typage manuel", Width = 130, Height = 34, Margin = new Padding(12,0,0,0), BackColor = Color.FromArgb(108,76,170), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        manualButton.Click += (_, _) => ClassifySelectedManually(); actionRow.Controls.Add(manualButton);
+        manualButton.Click += (_, _) => ClassifySelectedManually(); actionRow2.Controls.Add(manualButton);
         var autoButton = new Button { Text = "Typage auto", Width = 115, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(25,130,105), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        autoButton.Click += (_, _) => ApplyAutomaticTyping(); actionRow.Controls.Add(autoButton);
+        autoButton.Click += (_, _) => ApplyAutomaticTyping(); actionRow2.Controls.Add(autoButton);
         var ruleButton = new Button { Text = "Règle → cochées", Width = 145, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(185,120,35), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        ruleButton.Click += (_, _) => ApplyRuleToCheckedOperations(); actionRow.Controls.Add(ruleButton);
+        ruleButton.Click += (_, _) => ApplyRuleToCheckedOperations(); actionRow2.Controls.Add(ruleButton);
         var checkAllButton = new Button { Text = "Tout cocher", Width = 105, Height = 34, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(45,105,165), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        checkAllButton.Click += (_, _) => SetDisplayedChecks(true); actionRow.Controls.Add(checkAllButton);
+        checkAllButton.Click += (_, _) => SetDisplayedChecks(true); actionRow2.Controls.Add(checkAllButton);
         var uncheckAllButton = new Button { Text = "Tout décocher", Width = 115, Height = 34, Margin = new Padding(5,0,0,0), BackColor = Color.FromArgb(70,82,100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        uncheckAllButton.Click += (_, _) => SetDisplayedChecks(false); actionRow.Controls.Add(uncheckAllButton);
+        uncheckAllButton.Click += (_, _) => SetDisplayedChecks(false); actionRow2.Controls.Add(uncheckAllButton);
 
-        filters.Controls.Add(filterRow,0,0); filters.Controls.Add(navigationRow,0,1); filters.Controls.Add(actionRow,0,2);
+        filters.Controls.Add(filterRow,0,0); filters.Controls.Add(navigationRow,0,1); filters.Controls.Add(actionRow,0,2); filters.Controls.Add(actionRow2,0,3);
         layout.Controls.Add(filters, 0, 1);
 
         var summary = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Color.FromArgb(7, 43, 82), Padding = new Padding(14, 5, 14, 5) };
