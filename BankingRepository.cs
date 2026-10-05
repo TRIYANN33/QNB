@@ -329,7 +329,11 @@ CREATE INDEX IF NOT EXISTS IX_Operations_ImportId ON Operations(ImportId); CREAT
         using var c=OpenConnection();var changed=0;using var read=c.CreateCommand();read.CommandText="SELECT Id,Nature,InterbankLabel,Details,ClassificationMode FROM Operations";using var r=read.ExecuteReader();var updates=new List<(long Id,string Type,string Sub)>();
         while(r.Read())
         {
-            var mode=r.GetString(4);if(!overwriteManual&&string.Equals(mode,"Manuel",StringComparison.OrdinalIgnoreCase))continue;
+            var mode=r.GetString(4);
+            // Un typage déjà présent est verrouillé : le typage automatique ne doit
+            // jamais remplacer un typage Auto, Règle ou Manuel existant.
+            // Seule une modification manuelle explicite peut corriger ce typage.
+            if(!string.IsNullOrWhiteSpace(mode))continue;
             var text=$"{r.GetString(1)} {r.GetString(2)} {r.GetString(3)}";
             var rule=rules.FirstOrDefault(x=>RuleMatches(text,x.ContainsText));if(rule is not null)updates.Add((r.GetInt64(0),rule.Type,rule.SubType));
         }
