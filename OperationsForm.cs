@@ -44,7 +44,7 @@ internal sealed class OperationsForm : Form
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 1, RowCount = 4, BackColor = BackColor };
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 196F));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 244F));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46F));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
@@ -59,7 +59,7 @@ internal sealed class OperationsForm : Form
         selectedPanel.Controls.Add(_selectedOperationInfo,0,0);selectedPanel.Controls.Add(_checkedSelectionInfo,0,1);header.Controls.Add(selectedPanel,1,0);
         layout.Controls.Add(header, 0, 0);
 
-        var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = Color.FromArgb(4,36,73), Padding = new Padding(12,8,12,8) };
+        var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = Color.FromArgb(4,36,73), Padding = new Padding(12,8,12,8), CellBorderStyle = TableLayoutPanelCellBorderStyle.Single };
         filters.RowStyles.Add(new RowStyle(SizeType.Percent,25F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,25F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,25F)); filters.RowStyles.Add(new RowStyle(SizeType.Percent,25F));
         var filterRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
         var navigationRow = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.LeftToRight, WrapContents=false, BackColor=Color.Transparent, AutoScroll=true };
@@ -85,10 +85,10 @@ internal sealed class OperationsForm : Form
         filterRow.Controls.Add(_subTypeFilter);
         var chooseBanks = new Button { Text = "☑ Banques...", Width = 115, Height = 30, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         chooseBanks.Click += (_, _) => ChooseValues("Banques à afficher", _allRows.Select(x => x.Bank), _checkedBanks);
-        filterRow.Controls.Add(chooseBanks);
+        navigationRow.Controls.Add(chooseBanks);
         var chooseAccounts = new Button { Text = "☑ Comptes...", Width = 115, Height = 30, Margin = new Padding(5,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         chooseAccounts.Click += (_, _) => ChooseValues("Comptes à afficher", _allRows.Select(x => x.Account), _checkedAccounts);
-        filterRow.Controls.Add(chooseAccounts);
+        navigationRow.Controls.Add(chooseAccounts);
         filterRow.Controls.Add(new Label { Text = "Recherche", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
         _searchBox = new TextBox { Width = 240, PlaceholderText = "Rechercher dans toutes les colonnes..." };
         _searchBox.TextChanged += (_, _) => ApplyFilters();
@@ -131,19 +131,19 @@ internal sealed class OperationsForm : Form
         actionRow.Controls.Add(_deleteButton);
         var showBankAccounts = new Button { Text = "Afficher banques/comptes cochés", Width = 225, Height = 30, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         showBankAccounts.Click += (_, _) => { _showCheckedBankAccounts = true; ApplyFilters(); };
-        actionRow.Controls.Add(showBankAccounts);
+        actionRow2.Controls.Add(showBankAccounts);
         var showOperations = new Button { Text = "Afficher opérations cochées", Width = 205, Height = 30, Margin = new Padding(5,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         showOperations.Click += (_, _) => { _grid.EndEdit(); _showCheckedOperations = true; ApplyFilters(); };
-        actionRow.Controls.Add(showOperations);
+        actionRow2.Controls.Add(showOperations);
         var showAll = new Button { Text = "Tout afficher", Width = 105, Height = 30, Margin = new Padding(5,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         showAll.Click += (_, _) => { _showCheckedBankAccounts = false; _showCheckedOperations = false; _bankFilter.SelectedIndex = 0; _subTypeFilter.SelectedIndex = 0; _searchBox.Clear(); _periodEnabled.Checked = false; _withoutTypeFilter.Checked = false; RefreshAccountFilter(); };
-        actionRow.Controls.Add(showAll);
+        actionRow2.Controls.Add(showAll);
         var manualButton = new Button { Text = "Typage manuel", Width = 130, Height = 30, Margin = new Padding(12,0,0,0), BackColor = Color.FromArgb(108,76,170), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        manualButton.Click += (_, _) => ClassifySelectedManually(); actionRow2.Controls.Add(manualButton);
+        manualButton.Click += (_, _) => ClassifySelectedManually(); actionRow.Controls.Add(manualButton);
         var autoButton = new Button { Text = "Typage auto", Width = 115, Height = 30, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(25,130,105), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        autoButton.Click += (_, _) => ApplyAutomaticTyping(); actionRow2.Controls.Add(autoButton);
+        autoButton.Click += (_, _) => ApplyAutomaticTyping(); actionRow.Controls.Add(autoButton);
         var ruleButton = new Button { Text = "Règle → cochées", Width = 145, Height = 30, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(185,120,35), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        ruleButton.Click += (_, _) => ApplyRuleToCheckedOperations(); actionRow2.Controls.Add(ruleButton);
+        ruleButton.Click += (_, _) => ApplyRuleToCheckedOperations(); actionRow.Controls.Add(ruleButton);
         var choiceLabel = new Label { Text = "Choix :", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Font = new Font("Segoe UI Semibold",9.3F,FontStyle.Bold), Margin = new Padding(18,7,4,0) };
         actionRow2.Controls.Add(choiceLabel);
         var checkAllButton = new Button { Text = "☑ Tout cocher", Width = 115, Height = 30, Margin = new Padding(4,0,0,0), BackColor = Color.FromArgb(45,105,165), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
