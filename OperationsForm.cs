@@ -7,6 +7,7 @@ internal sealed class OperationsForm : Form
     private readonly DataGridView _grid;
     private readonly ComboBox _bankFilter;
     private readonly ComboBox _accountFilter;
+    private readonly ComboBox _subTypeFilter;
     private readonly TextBox _searchBox;
     private readonly HashSet<string> _checkedBanks = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _checkedAccounts = new(StringComparer.OrdinalIgnoreCase);
@@ -75,6 +76,13 @@ internal sealed class OperationsForm : Form
         filterRow.Controls.Add(_bankFilter);
         filterRow.Controls.Add(new Label { Text = "Compte", AutoSize = true, ForeColor = Color.FromArgb(183, 207, 229), Margin = new Padding(18, 7, 8, 0) });
         filterRow.Controls.Add(_accountFilter);
+        filterRow.Controls.Add(new Label { Text = "S-Type", AutoSize = true, ForeColor = Color.FromArgb(183,207,229), Margin = new Padding(18,7,8,0) });
+        _subTypeFilter = new ComboBox { Width = 185, DropDownStyle = ComboBoxStyle.DropDownList };
+        _subTypeFilter.Items.Add("Tous les S-Types");
+        foreach (var sub in _allRows.Select(x => x.SubType).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.CurrentCultureIgnoreCase).OrderBy(x => x)) _subTypeFilter.Items.Add(sub);
+        _subTypeFilter.SelectedIndex = 0;
+        _subTypeFilter.SelectedIndexChanged += (_, _) => ApplyFilters();
+        filterRow.Controls.Add(_subTypeFilter);
         var chooseBanks = new Button { Text = "☑ Banques...", Width = 115, Height = 30, Margin = new Padding(8,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         chooseBanks.Click += (_, _) => ChooseValues("Banques à afficher", _allRows.Select(x => x.Bank), _checkedBanks);
         filterRow.Controls.Add(chooseBanks);
@@ -128,7 +136,7 @@ internal sealed class OperationsForm : Form
         showOperations.Click += (_, _) => { _grid.EndEdit(); _showCheckedOperations = true; ApplyFilters(); };
         actionRow.Controls.Add(showOperations);
         var showAll = new Button { Text = "Tout afficher", Width = 105, Height = 30, Margin = new Padding(5,0,0,0), BackColor = Color.FromArgb(16,112,187), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-        showAll.Click += (_, _) => { _showCheckedBankAccounts = false; _showCheckedOperations = false; _bankFilter.SelectedIndex = 0; _searchBox.Clear(); _periodEnabled.Checked = false; _withoutTypeFilter.Checked = false; RefreshAccountFilter(); };
+        showAll.Click += (_, _) => { _showCheckedBankAccounts = false; _showCheckedOperations = false; _bankFilter.SelectedIndex = 0; _subTypeFilter.SelectedIndex = 0; _searchBox.Clear(); _periodEnabled.Checked = false; _withoutTypeFilter.Checked = false; RefreshAccountFilter(); };
         actionRow.Controls.Add(showAll);
         var manualButton = new Button { Text = "Typage manuel", Width = 130, Height = 30, Margin = new Padding(12,0,0,0), BackColor = Color.FromArgb(108,76,170), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
         manualButton.Click += (_, _) => ClassifySelectedManually(); actionRow2.Controls.Add(manualButton);
@@ -445,6 +453,7 @@ internal sealed class OperationsForm : Form
     {
         var bank = _bankFilter.SelectedItem?.ToString();
         var account = _accountFilter.SelectedItem?.ToString();
+        var subType = _subTypeFilter.SelectedItem?.ToString();
         IEnumerable<OperationRow> rows = _allRows;
         if (!string.IsNullOrWhiteSpace(bank) && bank != "Toutes les banques") rows = rows.Where(x => x.Bank == bank);
         if (!string.IsNullOrWhiteSpace(account) && account != "Tous les comptes") rows = rows.Where(x => x.Account == account);
@@ -454,6 +463,7 @@ internal sealed class OperationsForm : Form
             if (_checkedAccounts.Count > 0) rows = rows.Where(x => _checkedAccounts.Contains(x.Account));
         }
         if (_showCheckedOperations) rows = rows.Where(x => x.DisplaySelected);
+        if (!string.IsNullOrWhiteSpace(subType) && subType != "Tous les S-Types") rows = rows.Where(x => string.Equals(x.SubType, subType, StringComparison.CurrentCultureIgnoreCase));
         if (_withoutTypeFilter.Checked) rows = rows.Where(x => string.IsNullOrWhiteSpace(x.Type));
         if (_periodEnabled.Checked)
         {
