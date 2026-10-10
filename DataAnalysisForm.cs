@@ -13,23 +13,106 @@ internal sealed class DataAnalysisForm : Form
 
     public DataAnalysisForm()
     {
-        Text="QNB - Analyse des données";StartPosition=FormStartPosition.CenterParent;Size=new Size(920,380);MinimumSize=new Size(760,340);
+        Text="QNB - Analyse des données";StartPosition=FormStartPosition.CenterParent;Size=new Size(920,510);MinimumSize=new Size(760,470);
         BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",10F);
         var title=new Label{Text="ANALYSE DES DONNÉES",Dock=DockStyle.Top,Height=62,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(22,0,0,0),Font=new Font("Segoe UI Semibold",20F,FontStyle.Bold)};
-        var panel=new FlowLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(22),BackColor=Color.FromArgb(4,36,73),FlowDirection=FlowDirection.LeftToRight,WrapContents=true};
-        var ops=BankingRepository.LoadImports().SelectMany(x=>x.Operations).ToList();var min=ops.Count>0?ops.Min(x=>x.Date).Date:DateTime.Today;var max=ops.Count>0?ops.Max(x=>x.Date).Date:DateTime.Today;
+        var panel=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(22,14,22,14),BackColor=Color.FromArgb(4,36,73),ColumnCount=1,RowCount=7};
+        for(var i=0;i<7;i++)panel.RowStyles.Add(new RowStyle(SizeType.Absolute,i==0?45:49));
+        var dates=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=false,AutoScroll=true};
+        var ops=BankingRepository.LoadImports().SelectMany(x=>x.Operations).ToList();
+        var min=ops.Count>0?ops.Min(x=>x.Date).Date:DateTime.Today;
+        var max=ops.Count>0?ops.Max(x=>x.Date).Date:DateTime.Today;
         _from.Value=min;_to.Value=max;
-        panel.Controls.Add(Label("Du"));panel.Controls.Add(_from);panel.Controls.Add(Label("au"));panel.Controls.Add(_to);
-        var journal=new Button{Text="Journal mensuel",Width=160,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(174,112,38),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};journal.Click+=(_,_)=>ExportJournal();panel.Controls.Add(journal);
-        var typeJournal=new Button{Text="Journal par Type",Width=160,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(16,112,187),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};typeJournal.Click+=(_,_)=>ExportTypeJournal();panel.Controls.Add(typeJournal);
-        var postJournal=new Button{Text="Journal annuel / Poste",Width=185,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(92,82,160),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};postJournal.Click+=(_,_)=>ExportAnnualPostJournal();panel.Controls.Add(postJournal);
-        var pieButton=new Button{Text="Camemberts dépenses / recettes",Width=270,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(36,133,127),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
-        pieButton.Click+=(_,_)=>ShowMonthlyPieCharts();panel.Controls.Add(pieButton);
-        var excelPie=new Button{Text="Excel camemberts",Width=185,Height=34,Margin=new Padding(8,0,0,0),BackColor=Color.FromArgb(32,126,83),ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
-        excelPie.Click+=(_,_)=>ExportPieChartsExcel();panel.Controls.Add(excelPie);
-        _status.Margin=new Padding(0,22,0,0);_status.Width=680;panel.SetFlowBreak(excelPie,true);panel.Controls.Add(_status);
+        dates.Controls.Add(Label("Du"));dates.Controls.Add(_from);dates.Controls.Add(Label("au"));dates.Controls.Add(_to);
+        panel.Controls.Add(dates,0,0);
+        Button MakeButton(string text,int width,Color color,Action action)
+        {
+            var button=new Button{Text=text,Width=width,Height=36,Margin=new Padding(0,4,0,4),BackColor=color,ForeColor=Color.White,FlatStyle=FlatStyle.Flat};
+            button.Click+=(_,_)=>action();return button;
+        }
+        panel.Controls.Add(MakeButton("Journal mensuel",180,Color.FromArgb(174,112,38),ExportJournal),0,1);
+        panel.Controls.Add(MakeButton("Journal par Type",180,Color.FromArgb(16,112,187),ExportTypeJournal),0,2);
+        panel.Controls.Add(MakeButton("Journal annuel / Poste",200,Color.FromArgb(92,82,160),ExportAnnualPostJournal),0,3);
+        panel.Controls.Add(MakeButton("Camemberts dépenses / recettes",280,Color.FromArgb(36,133,127),ShowMonthlyPieCharts),0,4);
+        panel.Controls.Add(MakeButton("Excel camemberts",200,Color.FromArgb(32,126,83),ExportPieChartsExcel),0,5);
+        var bottom=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=false,AutoScroll=true};
+        bottom.Controls.Add(MakeButton("Excel banques / postes / S-Type",290,Color.FromArgb(16,112,187),ExportBankSubTypeSummary));
+        _status.Margin=new Padding(15,12,0,0);bottom.Controls.Add(_status);panel.Controls.Add(bottom,0,6);
         Controls.Add(panel);Controls.Add(title);
     }
+    private void ExportBankSubTypeSummary()
+    {
+        var from=_from.Value.Date;var to=_to.Value.Date;
+        if(from>to){MessageBox.Show("La date de début doit précéder la date de fin.","QNB");return;}
+        var classifications=BankingRepository.LoadOperationClassifications();
+        var rows=BankingRepository.LoadImports()
+            .SelectMany(import=>import.Operations.Select(op=>new{Import=import,Op=op}))
+            .Where(x=>x.Op.Date.Date>=from&&x.Op.Date.Date<=to)
+            .Select(x=>{
+                classifications.TryGetValue(x.Op.Id,out var classification);
+                return new{
+                    Bank=string.IsNullOrWhiteSpace(x.Import.BankName)?"Non renseignée":x.Import.BankName,
+                    Account=string.IsNullOrWhiteSpace(x.Import.AccountDisplayName)?x.Import.AccountReference:x.Import.AccountDisplayName,
+                    Post=string.IsNullOrWhiteSpace(classification?.Type)?"Non typé":classification.Type,
+                    Sub=string.IsNullOrWhiteSpace(classification?.SubType)?"Non typé":classification.SubType,
+                    Debit=Math.Abs(Math.Min(0m,x.Op.Amount)),Credit=Math.Max(0m,x.Op.Amount)
+                };
+            }).ToList();
+        if(rows.Count==0){MessageBox.Show("Aucune opération sur la période sélectionnée.","QNB");return;}
+        using var save=new SaveFileDialog{Filter="Classeur Excel (*.xlsx)|*.xlsx",FileName=$"QNB_Banques_Postes_SType_{from:yyyyMMdd}_{to:yyyyMMdd}.xlsx"};
+        if(save.ShowDialog(this)!=DialogResult.OK)return;
+        using var workbook=new XLWorkbook();
+        var sheet=workbook.Worksheets.Add("Banques et S-Type");
+        sheet.Cell(1,1).Value="BANQUES / POSTES / S-TYPE";
+        sheet.Range(1,1,1,8).Merge();
+        sheet.Range(1,1,1,8).Style.Font.Bold=true;
+        sheet.Range(1,1,1,8).Style.Font.FontSize=16;
+        sheet.Cell(2,1).Value="Période du";sheet.Cell(2,2).Value=from;
+        sheet.Cell(2,3).Value="au";sheet.Cell(2,4).Value=to;
+        sheet.Cell(2,2).Style.DateFormat.Format="dd/MM/yyyy";
+        sheet.Cell(2,4).Style.DateFormat.Format="dd/MM/yyyy";
+        var headers=new[]{"Banque","Cpte bancaire","Poste","S-Type","Date début","Date fin","Débit","Crédit"};
+        for(var i=0;i<headers.Length;i++)sheet.Cell(4,i+1).Value=headers[i];
+        sheet.Range(4,1,4,8).Style.Font.Bold=true;
+        sheet.Range(4,1,4,8).Style.Fill.BackgroundColor=XLColor.FromHtml("#042449");
+        sheet.Range(4,1,4,8).Style.Font.FontColor=XLColor.White;
+        var line=5;
+        foreach(var bank in rows.GroupBy(x=>x.Bank).OrderBy(x=>x.Key))
+        {
+            foreach(var post in bank.GroupBy(x=>x.Post).OrderBy(x=>x.Key))
+            {
+                foreach(var sub in post.GroupBy(x=>new{x.Account,x.Sub}).OrderBy(x=>x.Key.Account).ThenBy(x=>x.Key.Sub))
+                {
+                    sheet.Cell(line,1).Value=bank.Key;sheet.Cell(line,2).Value=sub.Key.Account;
+                    sheet.Cell(line,3).Value=post.Key;sheet.Cell(line,4).Value=sub.Key.Sub;
+                    sheet.Cell(line,5).Value=from;sheet.Cell(line,6).Value=to;
+                    sheet.Cell(line,7).Value=sub.Sum(x=>x.Debit);sheet.Cell(line,8).Value=sub.Sum(x=>x.Credit);
+                    line++;
+                }
+                sheet.Cell(line,3).Value="TOTAL POSTE : "+post.Key;
+                sheet.Cell(line,7).Value=post.Sum(x=>x.Debit);sheet.Cell(line,8).Value=post.Sum(x=>x.Credit);
+                sheet.Range(line,1,line,8).Style.Font.Bold=true;
+                sheet.Range(line,1,line,8).Style.Fill.BackgroundColor=XLColor.FromHtml("#DCEBFA");
+                line++;
+            }
+            sheet.Cell(line,1).Value="TOTAL BANQUE : "+bank.Key;
+            sheet.Cell(line,7).Value=bank.Sum(x=>x.Debit);sheet.Cell(line,8).Value=bank.Sum(x=>x.Credit);
+            sheet.Range(line,1,line,8).Style.Font.Bold=true;
+            sheet.Range(line,1,line,8).Style.Fill.BackgroundColor=XLColor.FromHtml("#BBD8F0");
+            line++;
+        }
+        sheet.Cell(line,1).Value="TOTAL GÉNÉRAL";
+        sheet.Cell(line,7).Value=rows.Sum(x=>x.Debit);sheet.Cell(line,8).Value=rows.Sum(x=>x.Credit);
+        sheet.Range(line,1,line,8).Style.Font.Bold=true;
+        sheet.Range(line,1,line,8).Style.Fill.BackgroundColor=XLColor.FromHtml("#84B8E5");
+        sheet.Range(5,5,line,6).Style.DateFormat.Format="dd/MM/yyyy";
+        sheet.Range(5,7,line,8).Style.NumberFormat.Format="#,##0.00";
+        sheet.Columns().AdjustToContents();
+        sheet.SheetView.FreezeRows(4);
+        workbook.SaveAs(save.FileName);
+        _status.Text="Export Excel créé : "+Path.GetFileName(save.FileName);
+    }
+
     private void ExportAnnualPostJournal()
     {
         var year=_from.Value.Year;var from=new DateTime(year,1,1);var to=new DateTime(year,12,31);
