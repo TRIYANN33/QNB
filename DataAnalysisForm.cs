@@ -111,6 +111,19 @@ internal sealed class DataAnalysisForm : Form
         sheet.SheetView.FreezeRows(4);
         workbook.SaveAs(save.FileName);
         _status.Text="Export Excel créé : "+Path.GetFileName(save.FileName);
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName=save.FileName,
+                UseShellExecute=true
+            });
+        }
+        catch(Exception ex)
+        {
+            MessageBox.Show("Le fichier a été enregistré, mais son ouverture automatique a échoué : "+ex.Message,
+                "QNB - Excel",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+        }
     }
 
     private void ExportAnnualPostJournal()
