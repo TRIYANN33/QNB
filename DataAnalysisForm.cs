@@ -45,6 +45,24 @@ internal sealed class DataAnalysisForm : Form
     {
         foreach(var sheet in workbook.Worksheets)
         {
+            // Limiter la largeur des colonnes contenant Nature et Détails,
+            // y compris la colonne combinée Libellé / Détails.
+            var used=sheet.RangeUsed();
+            if(used is not null)
+            {
+                foreach(var cell in used.Cells())
+                {
+                    if(cell.DataType!=XLDataType.Text)continue;
+                    var heading=cell.GetString().Trim();
+                    if(string.Equals(heading,"Nature",StringComparison.OrdinalIgnoreCase)
+                        ||string.Equals(heading,"Détails",StringComparison.OrdinalIgnoreCase)
+                        ||string.Equals(heading,"Libellé / Détails",StringComparison.OrdinalIgnoreCase))
+                    {
+                        sheet.Column(cell.Address.ColumnNumber).Width=30;
+                        sheet.Column(cell.Address.ColumnNumber).Style.Alignment.WrapText=true;
+                    }
+                }
+            }
             sheet.PageSetup.PageOrientation=XLPageOrientation.Landscape;
             sheet.PageSetup.PagesWide=1;
             sheet.PageSetup.PagesTall=0;
