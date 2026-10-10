@@ -41,6 +41,21 @@ internal sealed class DataAnalysisForm : Form
         _status.Margin=new Padding(15,12,0,0);bottom.Controls.Add(_status);panel.Controls.Add(bottom,0,7);
         Controls.Add(panel);Controls.Add(title);
     }
+    private static void ConfigurePrintLayout(XLWorkbook workbook)
+    {
+        foreach(var sheet in workbook.Worksheets)
+        {
+            sheet.PageSetup.PageOrientation=XLPageOrientation.Landscape;
+            sheet.PageSetup.PagesWide=1;
+            sheet.PageSetup.PagesTall=0;
+            sheet.PageSetup.CenterHorizontally=true;
+            sheet.PageSetup.Margins.Left=0.25;
+            sheet.PageSetup.Margins.Right=0.25;
+            sheet.PageSetup.Margins.Top=0.4;
+            sheet.PageSetup.Margins.Bottom=0.4;
+        }
+    }
+
     private void ExportSubTypePeriodJournal()
     {
         var from=_from.Value.Date;var to=_to.Value.Date;
@@ -93,7 +108,7 @@ internal sealed class DataAnalysisForm : Form
         ws.Range(5,5,line,5).Style.DateFormat.Format="dd/MM/yyyy";
         ws.Range(5,8,line,10).Style.NumberFormat.Format="#,##0.00";
         ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(4);
-        wb.SaveAs(save.FileName);_status.Text="Journal S-Type créé : "+Path.GetFileName(save.FileName);
+        ConfigurePrintLayout(wb);wb.SaveAs(save.FileName);_status.Text="Journal S-Type créé : "+Path.GetFileName(save.FileName);
         try{Process.Start(new ProcessStartInfo{FileName=save.FileName,UseShellExecute=true});}
         catch(Exception ex){MessageBox.Show("Le fichier est enregistré, mais son ouverture a échoué : "+ex.Message,"QNB - Excel",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
     }
@@ -167,7 +182,7 @@ internal sealed class DataAnalysisForm : Form
         sheet.Range(5,7,line,8).Style.NumberFormat.Format="#,##0.00";
         sheet.Columns().AdjustToContents();
         sheet.SheetView.FreezeRows(4);
-        workbook.SaveAs(save.FileName);
+        ConfigurePrintLayout(workbook);workbook.SaveAs(save.FileName);
         _status.Text="Export Excel créé : "+Path.GetFileName(save.FileName);
         try
         {
@@ -207,7 +222,7 @@ internal sealed class DataAnalysisForm : Form
                 ws.Cell(r,5).Value="Total";ws.Cell(r,6).Value=debitTotal;ws.Cell(r,7).Value=creditTotal;ws.Cell(r,8).Value=creditTotal-debitTotal;ws.Range(r,5,r,8).Style.Font.Bold=true;if(debitTotal>0)ws.Cell(r,6).Style.Font.FontColor=XLColor.Red;if(creditTotal>0)ws.Cell(r,7).Style.Font.FontColor=XLColor.Green;ws.Cell(r,8).Style.Font.FontColor=(creditTotal-debitTotal)<0?XLColor.Red:XLColor.Green;r+=2;
             }r++;
         }
-        ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);wb.SaveAs(save.FileName);_status.Text=$"Journal annuel par Poste {year} : {rows.Count:N0} opérations";
+        ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);ConfigurePrintLayout(wb);wb.SaveAs(save.FileName);_status.Text=$"Journal annuel par Poste {year} : {rows.Count:N0} opérations";
         try{Process.Start(new ProcessStartInfo(save.FileName){UseShellExecute=true});}catch(Exception ex){MessageBox.Show($"Le journal a bien été créé, mais son ouverture automatique a échoué.\n\n{ex.Message}","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}MessageBox.Show($"Le journal annuel par Poste {year} a été créé et ouvert dans Excel.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
 
@@ -241,7 +256,7 @@ internal sealed class DataAnalysisForm : Form
             }
             r++;
         }
-        ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);wb.SaveAs(save.FileName);_status.Text=$"Journal par Type créé : {rows.Count:N0} opérations";
+        ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);ConfigurePrintLayout(wb);wb.SaveAs(save.FileName);_status.Text=$"Journal par Type créé : {rows.Count:N0} opérations";
         try{Process.Start(new ProcessStartInfo(save.FileName){UseShellExecute=true});}catch(Exception ex){MessageBox.Show($"Le journal a bien été créé, mais son ouverture automatique a échoué.\n\n{ex.Message}","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}
         MessageBox.Show("Le journal regroupé par Type a été créé et ouvert dans Excel.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
     }
@@ -296,7 +311,7 @@ internal sealed class DataAnalysisForm : Form
             r++;
         }
         ws.Column(1).Style.DateFormat.Format="dd/MM/yyyy";ws.Columns(6,8).Style.NumberFormat.Format="#,##0.00 €";ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(1);
-        wb.SaveAs(save.FileName);_status.Text=$"Journal détaillé créé : {rows.Count:N0} opérations";
+        ConfigurePrintLayout(wb);wb.SaveAs(save.FileName);_status.Text=$"Journal détaillé créé : {rows.Count:N0} opérations";
         try{Process.Start(new ProcessStartInfo(save.FileName){UseShellExecute=true});}
         catch(Exception ex){MessageBox.Show($"Le journal a bien été créé, mais son ouverture automatique a échoué.\n\n{ex.Message}","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Warning);return;}
         MessageBox.Show("Le journal détaillé a été créé et ouvert dans Excel.","QNB - Analyse",MessageBoxButtons.OK,MessageBoxIcon.Information);
@@ -320,7 +335,7 @@ internal sealed class DataAnalysisForm : Form
         {
             AddPieDataSheet(workbook,"Dépenses",expenses);
             AddPieDataSheet(workbook,"Recettes",income);
-            workbook.SaveAs(save.FileName);
+            ConfigurePrintLayout(workbook);workbook.SaveAs(save.FileName);
         }
         // ClosedXML 0.104 ne crée pas de graphiques : Excel ajoute les deux vrais camemberts au classeur.
         object? excelObject=null;object? bookObject=null;
