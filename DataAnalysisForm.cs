@@ -13,11 +13,11 @@ internal sealed class DataAnalysisForm : Form
 
     public DataAnalysisForm()
     {
-        Text="QNB - Analyse des données";StartPosition=FormStartPosition.CenterParent;Size=new Size(920,510);MinimumSize=new Size(760,470);
+        Text="QNB - Analyse des données";StartPosition=FormStartPosition.CenterParent;Size=new Size(920,570);MinimumSize=new Size(760,520);
         BackColor=Color.FromArgb(3,23,49);ForeColor=Color.White;Font=new Font("Segoe UI",10F);
         var title=new Label{Text="ANALYSE DES DONNÉES",Dock=DockStyle.Top,Height=62,TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(22,0,0,0),Font=new Font("Segoe UI Semibold",20F,FontStyle.Bold)};
-        var panel=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(22,14,22,14),BackColor=Color.FromArgb(4,36,73),ColumnCount=1,RowCount=7};
-        for(var i=0;i<7;i++)panel.RowStyles.Add(new RowStyle(SizeType.Absolute,i==0?45:49));
+        var panel=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(22,14,22,14),BackColor=Color.FromArgb(4,36,73),ColumnCount=1,RowCount=8};
+        for(var i=0;i<8;i++)panel.RowStyles.Add(new RowStyle(SizeType.Absolute,i==0?45:49));
         var dates=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=false,AutoScroll=true};
         var ops=BankingRepository.LoadImports().SelectMany(x=>x.Operations).ToList();
         var min=ops.Count>0?ops.Min(x=>x.Date).Date:DateTime.Today;
@@ -35,11 +35,66 @@ internal sealed class DataAnalysisForm : Form
         panel.Controls.Add(MakeButton("Journal annuel / Poste",200,Color.FromArgb(92,82,160),ExportAnnualPostJournal),0,3);
         panel.Controls.Add(MakeButton("Camemberts dépenses / recettes",280,Color.FromArgb(36,133,127),ShowMonthlyPieCharts),0,4);
         panel.Controls.Add(MakeButton("Excel camemberts",200,Color.FromArgb(32,126,83),ExportPieChartsExcel),0,5);
+        panel.Controls.Add(MakeButton("Journal par S-Type (période)",240,Color.FromArgb(91,77,168),ExportSubTypePeriodJournal),0,6);
         var bottom=new FlowLayoutPanel{Dock=DockStyle.Fill,WrapContents=false,AutoScroll=true};
         bottom.Controls.Add(MakeButton("Excel banques / postes / S-Type",290,Color.FromArgb(16,112,187),ExportBankSubTypeSummary));
-        _status.Margin=new Padding(15,12,0,0);bottom.Controls.Add(_status);panel.Controls.Add(bottom,0,6);
+        _status.Margin=new Padding(15,12,0,0);bottom.Controls.Add(_status);panel.Controls.Add(bottom,0,7);
         Controls.Add(panel);Controls.Add(title);
     }
+    private void ExportSubTypePeriodJournal()
+    {
+        var from=_from.Value.Date;var to=_to.Value.Date;
+        if(from>to){MessageBox.Show("La date de début doit précéder la date de fin.","QNB");return;}
+        var classifications=BankingRepository.LoadOperationClassifications();
+        var rows=BankingRepository.LoadImports()
+            .SelectMany(import=>import.Operations.Select(op=>new{Import=import,Op=op}))
+            .Where(x=>x.Op.Date.Date>=from&&x.Op.Date.Date<=to)
+            .Select(x=>{
+                classifications.TryGetValue(x.Op.Id,out var cls);
+                return new{
+                    Bank=string.IsNullOrWhiteSpace(x.Import.BankName)?"Non renseignée":x.Import.BankName,
+                    Account=string.IsNullOrWhiteSpace(x.Import.AccountDisplayName)?x.Import.AccountReference:x.Import.AccountDisplayName,
+                    Post=string.IsNullOrWhiteSpace(cls?.Type)?"Non typé":cls.Type,
+                    Sub=string.IsNullOrWhiteSpace(cls?.SubType)?"Non typé":cls.SubType,
+                    Op=x.Op,Debit=Math.Abs(Math.Min(0m,x.Op.Amount)),Credit=Math.Max(0m,x.Op.Amount)
+                };
+            }).ToList();
+        if(rows.Count==0){MessageBox.Show("Aucune opération sur la période sélectionnée.","QNB");return;}
+        using var save=new SaveFileDialog{Filter="Classeur Excel (*.xlsx)|*.xlsx",FileName=$"QNB_Journal_SType_{from:yyyyMMdd}_{to:yyyyMMdd}.xlsx"};
+        if(save.ShowDialog(this)!=DialogResult.OK)return;
+        using var wb=new XLWorkbook();var ws=wb.Worksheets.Add("Journal S-Type");
+        ws.Cell(1,1).Value="JOURNAL PAR S-TYPE";
+        ws.Range(1,1,1,9).Merge();ws.Range(1,1,1,9).Style.Font.Bold=true;ws.Range(1,1,1,9).Style.Font.FontSize=16;
+        ws.Cell(2,1).Value="Du";ws.Cell(2,2).Value=from;ws.Cell(2,3).Value="au";ws.Cell(2,4).Value=to;
+        ws.Cell(2,2).Style.DateFormat.Format="dd/MM/yyyy";ws.Cell(2,4).Style.DateFormat.Format="dd/MM/yyyy";
+        var headers=new[]{"Banque","Compte bancaire","Poste","S-Type","Date","Nature","Libellé / Détails","Débit","Crédit"};
+        for(var i=0;i<headers.Length;i++)ws.Cell(4,i+1).Value=headers[i];
+        ws.Range(4,1,4,9).Style.Font.Bold=true;ws.Range(4,1,4,9).Style.Fill.BackgroundColor=XLColor.FromHtml("#042449");ws.Range(4,1,4,9).Style.Font.FontColor=XLColor.White;
+        var line=5;
+        foreach(var sub in rows.GroupBy(x=>x.Sub).OrderBy(x=>x.Key))
+        {
+            foreach(var x in sub.OrderBy(x=>x.Op.Date).ThenBy(x=>x.Bank).ThenBy(x=>x.Account))
+            {
+                ws.Cell(line,1).Value=x.Bank;ws.Cell(line,2).Value=x.Account;ws.Cell(line,3).Value=x.Post;
+                ws.Cell(line,4).Value=x.Sub;ws.Cell(line,5).Value=x.Op.Date;
+                ws.Cell(line,6).Value=x.Op.Nature;
+                ws.Cell(line,7).Value=string.IsNullOrWhiteSpace(x.Op.Details)?x.Op.InterbankLabel:x.Op.InterbankLabel+" - "+x.Op.Details;
+                ws.Cell(line,8).Value=x.Debit;ws.Cell(line,9).Value=x.Credit;line++;
+            }
+            ws.Cell(line,4).Value="TOTAL S-TYPE : "+sub.Key;
+            ws.Cell(line,8).Value=sub.Sum(x=>x.Debit);ws.Cell(line,9).Value=sub.Sum(x=>x.Credit);
+            ws.Range(line,1,line,9).Style.Font.Bold=true;ws.Range(line,1,line,9).Style.Fill.BackgroundColor=XLColor.FromHtml("#DCEBFA");line++;
+        }
+        ws.Cell(line,4).Value="TOTAL GÉNÉRAL";ws.Cell(line,8).Value=rows.Sum(x=>x.Debit);ws.Cell(line,9).Value=rows.Sum(x=>x.Credit);
+        ws.Range(line,1,line,9).Style.Font.Bold=true;ws.Range(line,1,line,9).Style.Fill.BackgroundColor=XLColor.FromHtml("#84B8E5");
+        ws.Range(5,5,line,5).Style.DateFormat.Format="dd/MM/yyyy";
+        ws.Range(5,8,line,9).Style.NumberFormat.Format="#,##0.00";
+        ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(4);
+        wb.SaveAs(save.FileName);_status.Text="Journal S-Type créé : "+Path.GetFileName(save.FileName);
+        try{Process.Start(new ProcessStartInfo{FileName=save.FileName,UseShellExecute=true});}
+        catch(Exception ex){MessageBox.Show("Le fichier est enregistré, mais son ouverture a échoué : "+ex.Message,"QNB - Excel",MessageBoxButtons.OK,MessageBoxIcon.Warning);}
+    }
+
     private void ExportBankSubTypeSummary()
     {
         var from=_from.Value.Date;var to=_to.Value.Date;
