@@ -44,6 +44,7 @@ internal sealed class DataAnalysisForm : Form
     private void ExportSubTypePeriodJournal()
     {
         var from=_from.Value.Date;var to=_to.Value.Date;
+        var monthCount=(to.Year-from.Year)*12+to.Month-from.Month+1;
         if(from>to){MessageBox.Show("La date de début doit précéder la date de fin.","QNB");return;}
         var classifications=BankingRepository.LoadOperationClassifications();
         var rows=BankingRepository.LoadImports()
@@ -64,12 +65,12 @@ internal sealed class DataAnalysisForm : Form
         if(save.ShowDialog(this)!=DialogResult.OK)return;
         using var wb=new XLWorkbook();var ws=wb.Worksheets.Add("Journal S-Type");
         ws.Cell(1,1).Value="JOURNAL PAR S-TYPE";
-        ws.Range(1,1,1,9).Merge();ws.Range(1,1,1,9).Style.Font.Bold=true;ws.Range(1,1,1,9).Style.Font.FontSize=16;
+        ws.Range(1,1,1,10).Merge();ws.Range(1,1,1,9).Style.Font.Bold=true;ws.Range(1,1,1,9).Style.Font.FontSize=16;
         ws.Cell(2,1).Value="Du";ws.Cell(2,2).Value=from;ws.Cell(2,3).Value="au";ws.Cell(2,4).Value=to;
         ws.Cell(2,2).Style.DateFormat.Format="dd/MM/yyyy";ws.Cell(2,4).Style.DateFormat.Format="dd/MM/yyyy";
-        var headers=new[]{"Banque","Compte bancaire","Poste","S-Type","Date","Nature","Libellé / Détails","Débit","Crédit"};
+        var headers=new[]{"Banque","Compte bancaire","Poste","S-Type","Date","Nature","Libellé / Détails","Débit","Crédit","Solde / mois"};
         for(var i=0;i<headers.Length;i++)ws.Cell(4,i+1).Value=headers[i];
-        ws.Range(4,1,4,9).Style.Font.Bold=true;ws.Range(4,1,4,9).Style.Fill.BackgroundColor=XLColor.FromHtml("#042449");ws.Range(4,1,4,9).Style.Font.FontColor=XLColor.White;
+        ws.Range(4,1,4,10).Style.Font.Bold=true;ws.Range(4,1,4,9).Style.Fill.BackgroundColor=XLColor.FromHtml("#042449");ws.Range(4,1,4,9).Style.Font.FontColor=XLColor.White;
         var line=5;
         foreach(var sub in rows.GroupBy(x=>x.Sub).OrderBy(x=>x.Key))
         {
@@ -82,13 +83,15 @@ internal sealed class DataAnalysisForm : Form
                 ws.Cell(line,8).Value=x.Debit;ws.Cell(line,9).Value=x.Credit;line++;
             }
             ws.Cell(line,4).Value="TOTAL S-TYPE : "+sub.Key;
-            ws.Cell(line,8).Value=sub.Sum(x=>x.Debit);ws.Cell(line,9).Value=sub.Sum(x=>x.Credit);
-            ws.Range(line,1,line,9).Style.Font.Bold=true;ws.Range(line,1,line,9).Style.Fill.BackgroundColor=XLColor.FromHtml("#DCEBFA");line++;
+            var subDebit=sub.Sum(x=>x.Debit);var subCredit=sub.Sum(x=>x.Credit);
+            ws.Cell(line,8).Value=subDebit;ws.Cell(line,9).Value=subCredit;
+            ws.Cell(line,10).Value=(subCredit-subDebit)/monthCount;
+            ws.Range(line,1,line,10).Style.Font.Bold=true;ws.Range(line,1,line,9).Style.Fill.BackgroundColor=XLColor.FromHtml("#DCEBFA");line++;
         }
-        ws.Cell(line,4).Value="TOTAL GÉNÉRAL";ws.Cell(line,8).Value=rows.Sum(x=>x.Debit);ws.Cell(line,9).Value=rows.Sum(x=>x.Credit);
+        ws.Cell(line,4).Value="TOTAL GÉNÉRAL";ws.Cell(line,8).Value=rows.Sum(x=>x.Debit);ws.Cell(line,9).Value=rows.Sum(x=>x.Credit);ws.Cell(line,10).Value=(rows.Sum(x=>x.Credit)-rows.Sum(x=>x.Debit))/monthCount;
         ws.Range(line,1,line,9).Style.Font.Bold=true;ws.Range(line,1,line,9).Style.Fill.BackgroundColor=XLColor.FromHtml("#84B8E5");
         ws.Range(5,5,line,5).Style.DateFormat.Format="dd/MM/yyyy";
-        ws.Range(5,8,line,9).Style.NumberFormat.Format="#,##0.00";
+        ws.Range(5,8,line,10).Style.NumberFormat.Format="#,##0.00";
         ws.Columns().AdjustToContents();ws.SheetView.FreezeRows(4);
         wb.SaveAs(save.FileName);_status.Text="Journal S-Type créé : "+Path.GetFileName(save.FileName);
         try{Process.Start(new ProcessStartInfo{FileName=save.FileName,UseShellExecute=true});}
